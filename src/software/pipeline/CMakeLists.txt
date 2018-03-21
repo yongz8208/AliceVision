@@ -293,6 +293,24 @@ if(ALICEVISION_BUILD_SFM)
   install(TARGETS aliceVision_prepareDenseScene
     DESTINATION bin/
   )
+  
+  # 3D 3D registration
+
+  add_executable(aliceVision_3d3dRegistration main_3d3dRegistration.cpp)
+
+  target_link_libraries(aliceVision_3d3dRegistration
+    aliceVision_registration
+    ${PCL_LIBRARIES}
+  )
+
+  set_property(TARGET aliceVision_3d3dRegistration
+    PROPERTY FOLDER AliceVision/Software/Pipeline
+  )
+
+  install(TARGETS aliceVision_3d3dRegistration
+    DESTINATION bin/
+  )
+  
 endif() #ALICEVISION_BUILD_SFM
 
 ## MVS software
