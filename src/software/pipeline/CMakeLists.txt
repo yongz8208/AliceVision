@@ -296,6 +296,11 @@ if(ALICEVISION_BUILD_SFM)
   
   # 3D 3D registration
 
+	 find_package (PCL 1.8 REQUIRED COMPONENTS)
+include_directories (${PCL_INCLUDE_DIRS})
+link_directories (${PCL_LIBRARY_DIRS})
+add_definitions (${PCL_DEFINITIONS})
+
   add_executable(aliceVision_3d3dRegistration main_3d3dRegistration.cpp)
 
   target_link_libraries(aliceVision_3d3dRegistration
