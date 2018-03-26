@@ -304,6 +304,7 @@ add_definitions (${PCL_DEFINITIONS})
   add_executable(aliceVision_3d3dRegistration main_3d3dRegistration.cpp)
 
   target_link_libraries(aliceVision_3d3dRegistration
+    aliceVision_system
     aliceVision_registration
     ${PCL_LIBRARIES}
   )
