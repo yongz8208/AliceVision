@@ -295,27 +295,23 @@ if(ALICEVISION_BUILD_SFM)
   )
   
   # 3D 3D registration
+  if(ALICEVISION_BUILD_REGISTRATION)
+    add_executable(aliceVision_3d3dRegistration main_3d3dRegistration.cpp)
 
-	 find_package (PCL 1.8 REQUIRED COMPONENTS)
-include_directories (${PCL_INCLUDE_DIRS})
-link_directories (${PCL_LIBRARY_DIRS})
-add_definitions (${PCL_DEFINITIONS})
+    target_link_libraries(aliceVision_3d3dRegistration
+      aliceVision_system
+      aliceVision_registration
+      ${PCL_LIBRARIES}
+    )
 
-  add_executable(aliceVision_3d3dRegistration main_3d3dRegistration.cpp)
+    set_property(TARGET aliceVision_3d3dRegistration
+      PROPERTY FOLDER Software/Pipeline
+    )
 
-  target_link_libraries(aliceVision_3d3dRegistration
-    aliceVision_system
-    aliceVision_registration
-    ${PCL_LIBRARIES}
-  )
-
-  set_property(TARGET aliceVision_3d3dRegistration
-    PROPERTY FOLDER AliceVision/Software/Pipeline
-  )
-
-  install(TARGETS aliceVision_3d3dRegistration
-    DESTINATION bin/
-  )
+    install(TARGETS aliceVision_3d3dRegistration
+      DESTINATION bin/
+    )
+  endif()
   
 endif() #ALICEVISION_BUILD_SFM
 

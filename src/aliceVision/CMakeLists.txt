@@ -19,7 +19,6 @@ if(ALICEVISION_BUILD_SFM)
   add_subdirectory(matchingImageCollection)
   add_subdirectory(multiview)
   add_subdirectory(numeric)
-  add_subdirectory(registration)
   add_subdirectory(rig)
   add_subdirectory(robustEstimation)
   add_subdirectory(sensorDB)
@@ -30,6 +29,10 @@ if(ALICEVISION_BUILD_SFM)
 
   if(ALICEVISION_HAVE_OPENCV)
     add_subdirectory(calibration)
+  endif()
+
+  if(ALICEVISION_BUILD_REGISTRATION)
+    add_subdirectory(registration)
   endif()
 endif()
 
