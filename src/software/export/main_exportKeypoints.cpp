@@ -1,4 +1,6 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2017 AliceVision contributors.
+// Copyright (c) 2012 openMVG contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -40,7 +42,10 @@ int main(int argc, char ** argv)
   std::string verboseLevel = system::EVerboseLevel_enumToString(system::Logger::getDefaultVerboseLevel());
   std::string sfmDataFilename;
   std::string outputFolder;
-  std::string featuresFolder;
+  std::vector<std::string> featuresFolders;
+
+  // user optional parameters
+
   std::string describerTypesName = feature::EImageDescriberType_enumToString(feature::EImageDescriberType::SIFT);
 
   po::options_description allParams("AliceVision exportKeypoints");
@@ -51,8 +56,8 @@ int main(int argc, char ** argv)
       "SfMData file.")
     ("output,o", po::value<std::string>(&outputFolder)->required(),
       "Output path for keypoints.")
-    ("featuresFolder,f", po::value<std::string>(&featuresFolder)->required(),
-      "Path to a folder containing the extracted features.");
+    ("featuresFolders,f", po::value<std::vector<std::string>>(&featuresFolders)->multitoken()->required(),
+      "Path to folder(s) containing the extracted features.");
 
   po::options_description optionalParams("Optional parameters");
   optionalParams.add_options()
@@ -112,13 +117,12 @@ int main(int argc, char ** argv)
   }
 
   // load SfM Scene regions
-  
   // get imageDescriberMethodType
   std::vector<EImageDescriberType> describerMethodTypes = EImageDescriberType_stringToEnums(describerTypesName);
 
   // read the features
   feature::FeaturesPerView featuresPerView;
-  if (!sfm::loadFeaturesPerView(featuresPerView, sfmData, featuresFolder, describerMethodTypes))
+  if (!sfm::loadFeaturesPerView(featuresPerView, sfmData, featuresFolders, describerMethodTypes))
   {
     ALICEVISION_LOG_ERROR("Invalid features");
     return EXIT_FAILURE;

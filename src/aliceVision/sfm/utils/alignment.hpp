@@ -17,9 +17,9 @@ inline void getCommonViews(const SfMData& sfmDataA,
                            const SfMData& sfmDataB,
                            std::vector<IndexT>& outIndexes)
 {
-  for(const auto& viewA: sfmDataA.GetViews())
+  for(const auto& viewA: sfmDataA.getViews())
   {
-    if(sfmDataB.GetViews().find(viewA.first) != sfmDataB.GetViews().end())
+    if(sfmDataB.getViews().find(viewA.first) != sfmDataB.getViews().end())
     {
       outIndexes.push_back(viewA.first);
     }
@@ -30,15 +30,15 @@ inline void getCommonViewsWithPoses(const SfMData& sfmDataA,
                                     const SfMData& sfmDataB,
                                     std::vector<IndexT>& outIndexes)
 {
-  for(const auto& viewA: sfmDataA.GetViews())
+  for(const auto& viewA: sfmDataA.getViews())
   {
     // check there is a view with the same ID and both of them have pose and 
     // intrinsics defined
-    if(!sfmDataA.IsPoseAndIntrinsicDefined(viewA.second.get()))
+    if(!sfmDataA.isPoseAndIntrinsicDefined(viewA.second.get()))
       continue;
 
-    if(sfmDataB.GetViews().find(viewA.first) != sfmDataB.GetViews().end() &&
-       sfmDataB.IsPoseAndIntrinsicDefined(viewA.first))
+    if(sfmDataB.getViews().find(viewA.first) != sfmDataB.getViews().end() &&
+       sfmDataB.isPoseAndIntrinsicDefined(viewA.first))
     {
       outIndexes.push_back(viewA.first);
     }
@@ -82,9 +82,9 @@ inline void applyTransform(SfMData& sfmData,
     const View& view = *viewPair.second;
     if(sfmData.existsPose(view))
     {
-      geometry::Pose3 pose = sfmData.getPose(view);
+      geometry::Pose3 pose = sfmData.getPose(view).getTransform();
       pose = pose.transformSRt(S, R, t);
-      sfmData.setPose(view, pose);
+      sfmData.setPose(view, CameraPose(pose));
     }
   }
   

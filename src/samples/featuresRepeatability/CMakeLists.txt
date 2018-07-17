@@ -7,9 +7,9 @@ target_link_libraries(aliceVision_samples_repeatabilityDataset
   aliceVision_system
   aliceVision_multiview
   vlsift
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_samples_repeatabilityDataset
-  PROPERTY FOLDER AliceVision/Samples
+  PROPERTY FOLDER Samples
 )

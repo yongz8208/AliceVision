@@ -5,13 +5,12 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "optimization.hpp"
-#include "aliceVision/sfm/sfmDataIO.hpp"
+#include <aliceVision/sfm/sfmDataIO.hpp>
 #include <aliceVision/sfm/BundleAdjustmentCeres.hpp>
 #include <aliceVision/numeric/numeric.hpp>
 #include <aliceVision/rig/ResidualError.hpp>
 #include <aliceVision/system/Logger.hpp>
 #include <aliceVision/system/Timer.hpp>
-
 
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics/stats.hpp>
@@ -62,7 +61,7 @@ bool refineSequence(std::vector<LocalizationResult> & vec_localizationResult,
     
     ALICEVISION_CERR("allTheSameIntrinsics mode: using the intrinsics of the " << intrinsicIndex << " result");
     
-    camera::PinholeRadialK3* currIntrinsics = &vec_localizationResult[intrinsicIndex].getIntrinsics();
+    camera::PinholeRadialK3* currIntrinsics = &vec_localizationResult.at(intrinsicIndex).getIntrinsics();
     
     if(b_no_distortion)
     {
@@ -116,7 +115,7 @@ bool refineSequence(std::vector<LocalizationResult> & vec_localizationResult,
     std::shared_ptr<sfm::View> view = std::make_shared<sfm::View>("",viewID, intrinsicID, viewID);
     tinyScene.views.insert( std::make_pair(viewID, view));
     // pose
-    tinyScene.setPose(*view, currResult.getPose());
+    tinyScene.setPose(*view, sfm::CameraPose(currResult.getPose()));
 
     
     if(!allTheSameIntrinsics)
@@ -200,7 +199,7 @@ bool refineSequence(std::vector<LocalizationResult> & vec_localizationResult,
     ALICEVISION_LOG_DEBUG("Number of 3D-2D associations " << tinyScene.structure.size());
     
     std::size_t maxObs = 0;
-    for(const auto landmark : tinyScene.GetLandmarks() )
+    for(const auto landmark : tinyScene.getLandmarks() )
     {
       if(landmark.second.observations.size() > maxObs)
         maxObs = landmark.second.observations.size();
@@ -208,7 +207,7 @@ bool refineSequence(std::vector<LocalizationResult> & vec_localizationResult,
     namespace bacc = boost::accumulators;
     bacc::accumulator_set<std::size_t, bacc::stats<bacc::tag::mean, bacc::tag::min, bacc::tag::max, bacc::tag::sum > > stats;
     std::vector<std::size_t> hist(maxObs+1, 0);
-    for(const auto landmark : tinyScene.GetLandmarks() )
+    for(const auto landmark : tinyScene.getLandmarks() )
     {
       const std::size_t nobs = landmark.second.observations.size();
       assert(nobs < hist.size());
@@ -278,10 +277,10 @@ bool refineSequence(std::vector<LocalizationResult> & vec_localizationResult,
   if(b_BA_Status)
   {
     // get back the results and update the localization result with the refined pose
-    for(const auto &pose : tinyScene.GetPoses())
+    for(const auto &pose : tinyScene.getPoses())
     {
       const IndexT idPose = pose.first;
-      vec_localizationResult[idPose].setPose(pose.second);
+      vec_localizationResult[idPose].setPose(pose.second.getTransform());
     }
 
     if(!outputFilename.empty())

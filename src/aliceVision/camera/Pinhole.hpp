@@ -11,6 +11,7 @@
 #include <aliceVision/camera/cameraCommon.hpp>
 #include <aliceVision/camera/IntrinsicBase.hpp>
 #include <aliceVision/geometry/Pose3.hpp>
+#include <aliceVision/multiview/projection.hpp>
 
 #include <vector>
 
@@ -51,7 +52,7 @@ class Pinhole : public IntrinsicBase
   virtual EINTRINSIC getType() const { return PINHOLE_CAMERA; }
   std::string getTypeStr() const { return EINTRINSIC_enumToString(getType()); }
 
-  double getPxFocalLength() const { return _K(0,0); }
+  double getFocalLengthPix() const { return _K(0,0); }
 
   Vec2 getPrincipalPoint() const { return Vec2(_K(0,2), _K(1,2)); }
 

@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2017 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -14,8 +15,12 @@
 
 #include <OpenEXR/half.h>
 
+#include <boost/filesystem.hpp>
+
 #include <stdexcept>
 #include <memory>
+
+namespace fs = boost::filesystem;
 
 namespace aliceVision {
 namespace imageIO {
@@ -208,12 +213,15 @@ void writeImage(const std::string& path,
                 EImageQuality imageQuality,
                 const oiio::ParamValueList& metadata)
 {
+    const fs::path bPath = fs::path(path);
+    const std::string extension = bPath.extension().string();
+    const std::string tmpPath = (bPath.parent_path() / bPath.stem()).string() + "." + fs::unique_path().string() + extension;
+    const bool isEXR = (extension == ".exr");
+
     ALICEVISION_LOG_DEBUG("[IO] Write Image: " << path << std::endl
       << "\t- width: " << width << std::endl
       << "\t- height: " << height << std::endl
       << "\t- channels: " << nchannels);
-
-    const bool isEXR = (path.size() > 4 && path.compare(path.size() - 4, 4, ".exr") == 0);
 
     oiio::ImageSpec imageSpec(width, height, nchannels, typeDesc);
     imageSpec.extra_attribs = metadata;
@@ -241,15 +249,18 @@ void writeImage(const std::string& path,
           throw std::runtime_error("Can't convert output image file to half '" + path + "'.");
 
         // write image
-        if(!halfBuf.write(path))
+        if(!halfBuf.write(tmpPath))
           throw std::runtime_error("Can't write output image file '" + path + "'.");
     }
     else
     {
         // write image
-        if(!outBuf.write(path))
+        if(!outBuf.write(tmpPath))
           throw std::runtime_error("Can't write output image file '" + path + "'.");
     }
+
+    // rename temporay filename
+    fs::rename(tmpPath, path);
 }
 
 void writeImage(const std::string& path, int width, int height, const std::vector<unsigned char>& buffer, EImageQuality imageQuality, const oiio::ParamValueList& metadata)
@@ -397,6 +408,26 @@ void convolveImage(int inWidth, int inHeight, const std::vector<float>& inBuffer
 void convolveImage(int inWidth, int inHeight, const std::vector<Color>& inBuffer, std::vector<Color>& outBuffer, const std::string& kernel, float kernelWidth, float kernelHeight)
 {
   convolveImage(oiio::TypeDesc::FLOAT, inWidth, inHeight, 3, inBuffer, outBuffer, kernel, kernelWidth, kernelHeight);
+}
+
+void fillHoles(int inWidth, int inHeight, std::vector<Color>& colorBuffer, const std::vector<float>& alphaBuffer)
+{
+    oiio::ImageBuf rgbBuf(oiio::ImageSpec(inWidth, inHeight, 3, oiio::TypeDesc::FLOAT), colorBuffer.data());
+    const oiio::ImageBuf alphaBuf(oiio::ImageSpec(inWidth, inHeight, 1, oiio::TypeDesc::FLOAT), const_cast<float*>(alphaBuffer.data()));
+
+    // Create RGBA ImageBuf from source buffers with correct channel names
+    // (identified alpha channel is needed for fillholes_pushpull)
+    oiio::ImageBuf rgbaBuf;
+    oiio::ImageBufAlgo::channel_append(rgbaBuf, rgbBuf, alphaBuf);
+    rgbaBuf.specmod().default_channel_names();
+
+    // Temp RGBA buffer to store fillholes result
+    oiio::ImageBuf filledBuf;
+    oiio::ImageBufAlgo::fillholes_pushpull(filledBuf, rgbaBuf);
+    rgbaBuf.clear();
+
+    // Copy result to original RGB buffer
+    oiio::ImageBufAlgo::copy(rgbBuf, filledBuf);
 }
 
 } // namespace imageIO

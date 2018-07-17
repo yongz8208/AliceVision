@@ -1,4 +1,6 @@
 ﻿// This file is part of the AliceVision project.
+// Copyright (c) 2015 AliceVision contributors.
+// Copyright (c) 2012 openMVG contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -124,8 +126,8 @@ public:
   {
     // iteration on each view in the range in order
     // to prepare viewJob stack
-    sfm::Views::const_iterator itViewBegin = _sfmData.GetViews().begin();
-    sfm::Views::const_iterator itViewEnd = _sfmData.GetViews().end();
+    sfm::Views::const_iterator itViewBegin = _sfmData.getViews().begin();
+    sfm::Views::const_iterator itViewEnd = _sfmData.getViews().end();
 
     if(_rangeStart != -1)
     {
@@ -159,13 +161,13 @@ public:
       ALICEVISION_LOG_DEBUG("Memory information: " << std::endl <<memoryInformation);
 
       if(jobMaxMemoryConsuption == 0)
-        throw std::runtime_error("Can't compute feature extraction job max memory consuption.");
+        throw std::runtime_error("Cannot compute feature extraction job max memory consumption.");
 
       std::size_t nbThreads =  (0.9 * memoryInformation.freeRam) / jobMaxMemoryConsuption;
 
       if(memoryInformation.freeRam == 0)
       {
-        ALICEVISION_LOG_WARNING("Can't find available system memory, this can be due to OS limitations.\n"
+        ALICEVISION_LOG_WARNING("Cannot find available system memory, this can be due to OS limitations.\n"
                                 "Use only one thread for CPU feature extraction.");
         nbThreads = 1;
       }
@@ -258,7 +260,6 @@ int main(int argc, char **argv)
 
   std::string describerTypesName = feature::EImageDescriberType_enumToString(feature::EImageDescriberType::SIFT);
   std::string describerPreset = feature::EImageDescriberPreset_enumToString(feature::EImageDescriberPreset::NORMAL);
-  bool describersAreUpRight = false;
   int rangeStart = -1;
   int rangeSize = 1;
   int maxThreads = 0;
@@ -280,8 +281,6 @@ int main(int argc, char **argv)
     ("describerPreset,p", po::value<std::string>(&describerPreset)->default_value(describerPreset),
       "Control the ImageDescriber configuration (low, medium, normal, high, ultra).\n"
       "Configuration 'ultra' can take long time !")
-    ("upright,u", po::value<bool>(&describersAreUpRight)->default_value(describersAreUpRight),
-      "Use Upright feature.")
     ("forceCpuExtraction", po::value<bool>(&forceCpuExtraction)->default_value(forceCpuExtraction),
       "Use only CPU feature extraction methods.")
     ("rangeStart", po::value<int>(&rangeStart)->default_value(rangeStart),
@@ -369,7 +368,7 @@ int main(int argc, char **argv)
   if(rangeStart != -1)
   {
     if(rangeStart < 0 || rangeSize < 0 ||
-       rangeStart > sfmData.GetViews().size())
+       rangeStart > sfmData.getViews().size())
     {
       ALICEVISION_LOG_ERROR("Range is incorrect");
       return EXIT_FAILURE;
@@ -389,7 +388,6 @@ int main(int argc, char **argv)
     {
       std::shared_ptr<feature::ImageDescriber> imageDescriber = feature::createImageDescriber(imageDescriberType);
       imageDescriber->setConfigurationPreset(describerPreset);
-      imageDescriber->setUpRight(describersAreUpRight);
       if(forceCpuExtraction)
         imageDescriber->setUseCuda(false);
 

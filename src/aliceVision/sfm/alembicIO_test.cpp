@@ -48,7 +48,7 @@ SfMData createTestScene(IndexT singleViewsCount,
     // Add poses
     const Mat3 r = Mat3::Random();
     const Vec3 c = Vec3::Random();
-    sfm_data.setPose(*view, geometry::Pose3(r, c));
+    sfm_data.setPose(*view, CameraPose(geometry::Pose3(r, c)));
 
     // Add intrinsics
     if (bSharedIntrinsic)
@@ -96,7 +96,7 @@ SfMData createTestScene(IndexT singleViewsCount,
         {
           const Mat3 r = Mat3::Random();
           const Vec3 c = Vec3::Random();
-          sfm_data.setPose(*view, geometry::Pose3(r, c));
+          sfm_data.setPose(*view, CameraPose(geometry::Pose3(r, c)));
         }
 
         sfm_data.views[nbViews] = view;
@@ -206,7 +206,7 @@ BOOST_AUTO_TEST_CASE(AlembicImporter_importExport) {
     {
         BOOST_CHECK(Load(sfmJsonToABC, jsonFile3, ESfMData(flags)));
         BOOST_CHECK_EQUAL( sfmData.views.size(), sfmJsonToABC.views.size());
-        BOOST_CHECK_EQUAL( sfmData.GetPoses().size(), sfmJsonToABC.GetPoses().size());
+        BOOST_CHECK_EQUAL( sfmData.getPoses().size(), sfmJsonToABC.getPoses().size());
         BOOST_CHECK_EQUAL( sfmData.intrinsics.size(), sfmJsonToABC.intrinsics.size());
         BOOST_CHECK_EQUAL( sfmData.structure.size(), sfmJsonToABC.structure.size());
         BOOST_CHECK_EQUAL( sfmData.control_points.size(), sfmJsonToABC.control_points.size());
@@ -226,7 +226,7 @@ BOOST_AUTO_TEST_CASE(AlembicImporter_importExport) {
     {
         BOOST_CHECK(Load(sfmJsonToABC2, abcFile3, ESfMData(flags)));
         BOOST_CHECK_EQUAL( sfmData.views.size(), sfmJsonToABC2.views.size());
-        BOOST_CHECK_EQUAL( sfmData.GetPoses().size(), sfmJsonToABC2.GetPoses().size());
+        BOOST_CHECK_EQUAL( sfmData.getPoses().size(), sfmJsonToABC2.getPoses().size());
         BOOST_CHECK_EQUAL( sfmData.intrinsics.size(), sfmJsonToABC2.intrinsics.size());
         BOOST_CHECK_EQUAL( sfmData.structure.size(), sfmJsonToABC2.structure.size());
         BOOST_CHECK_EQUAL( sfmData.control_points.size(), sfmJsonToABC2.control_points.size());
@@ -246,7 +246,7 @@ BOOST_AUTO_TEST_CASE(AlembicImporter_importExport) {
     {
         BOOST_CHECK(Load(sfmJsonToABC3, abcFile4, ESfMData(flags)));
         BOOST_CHECK_EQUAL( sfmData.views.size(), sfmJsonToABC3.views.size());
-        BOOST_CHECK_EQUAL( sfmData.GetPoses().size(), sfmJsonToABC3.GetPoses().size());
+        BOOST_CHECK_EQUAL( sfmData.getPoses().size(), sfmJsonToABC3.getPoses().size());
         BOOST_CHECK_EQUAL( sfmData.intrinsics.size(), sfmJsonToABC3.intrinsics.size());
         BOOST_CHECK_EQUAL( sfmData.structure.size(), sfmJsonToABC3.structure.size());
         BOOST_CHECK_EQUAL( sfmData.control_points.size(), sfmJsonToABC3.control_points.size());

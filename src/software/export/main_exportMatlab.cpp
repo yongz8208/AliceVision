@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2017 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -76,9 +77,10 @@ bool exportToMatlab(
     for(const auto& v: sfm_data.views)
     {
       const View& view = *v.second.get();
-      if(!sfm_data.IsPoseAndIntrinsicDefined(&view))
+      if(!sfm_data.isPoseAndIntrinsicDefined(&view))
         continue;
-      const Pose3& pose = sfm_data.GetPoses().at(view.getPoseId());
+
+      const Pose3 pose = sfm_data.getPose(view).getTransform();
       cameraPosesFile << view.getViewId()
         << " " << pose.rotation()(0, 0)
         << " " << pose.rotation()(0, 1)
@@ -113,7 +115,7 @@ bool exportToMatlab(
     for(const auto& v: sfm_data.views)
     {
       const View& view = *v.second.get();
-      if(!sfm_data.IsPoseAndIntrinsicDefined(&view))
+      if(!sfm_data.isPoseAndIntrinsicDefined(&view))
         continue;
       const IntrinsicBase& intrinsics = *sfm_data.intrinsics.at(view.getIntrinsicId()).get();
       cameraIntrinsicsFile << view.getViewId() << " " << camera::EINTRINSIC_enumToString(intrinsics.getType());

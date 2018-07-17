@@ -1,6 +1,5 @@
 // This file is part of the AliceVision project.
-// Copyright (c) 2016 AliceVision contributors.
-// Copyright (c) 2012 openMVG contributors.
+// Copyright (c) 2017 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -93,6 +92,41 @@ inline void loadPose3(const std::string& name, geometry::Pose3& pose, bpt::ptree
   loadMatrix(name + ".center",   center, pose3Tree);
 
   pose = geometry::Pose3(rotation, center);
+}
+
+/**
+ * @brief Save a Pose3 in a boost property tree.
+ * @param[in] name The node name ( "" = no name )
+ * @param[in] pose The input pose3
+ * @param[out] parentTree The parent tree
+ */
+inline void saveCameraPose(const std::string& name, const CameraPose& cameraPose, bpt::ptree& parentTree)
+{
+  bpt::ptree cameraPoseTree;
+
+  savePose3("transform", cameraPose.getTransform(), cameraPoseTree);
+  cameraPoseTree.put("locked", cameraPose.isLocked());
+
+  parentTree.add_child(name, cameraPoseTree);
+}
+
+/**
+ * @brief Load a Pose3 from a boost property tree.
+ * @param[in] name The Pose3 name ( "" = no name )
+ * @param[out] pose The output Pose3
+ * @param[in,out] pose3Tree The input tree
+ */
+inline void loadCameraPose(const std::string& name, CameraPose& cameraPose, bpt::ptree& cameraPoseTree)
+{
+  geometry::Pose3 pose;
+
+  loadPose3(name + ".transform", pose, cameraPoseTree);
+  cameraPose.setTransform(pose);
+
+  if(cameraPoseTree.get<bool>("locked", false))
+    cameraPose.lock();
+  else
+    cameraPose.unlock();
 }
 
 /**

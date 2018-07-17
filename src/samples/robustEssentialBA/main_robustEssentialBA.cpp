@@ -1,5 +1,9 @@
-// This file is part of the AliceVision project and is made available under
-// the terms of the MPL2 license (see the COPYING.md file).
+// This file is part of the AliceVision project.
+// Copyright (c) 2017 AliceVision contributors.
+// Copyright (c) 2012 openMVG contributors.
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <aliceVision/camera/camera.hpp>
 #include <aliceVision/image/all.hpp>
@@ -227,8 +231,8 @@ int main() {
     const Pose3 pose0 = Pose3(Mat3::Identity(), Vec3::Zero());
     const Pose3 pose1 = relativePose_info.relativePose;
 
-    tinyScene.setPose(*tinyScene.views.at(0), pose0);
-    tinyScene.setPose(*tinyScene.views.at(1), pose1);
+    tinyScene.setPose(*tinyScene.views.at(0), CameraPose(pose0));
+    tinyScene.setPose(*tinyScene.views.at(1), CameraPose(pose1));
 
     // Init structure by inlier triangulation
     const Mat34 P1 = tinyScene.intrinsics[tinyScene.views[0]->getIntrinsicId()]->get_projective_equivalent(pose0);

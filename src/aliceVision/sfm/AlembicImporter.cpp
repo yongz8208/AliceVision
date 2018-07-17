@@ -124,7 +124,10 @@ bool readPointCloud(IObject iObj, M44d mat, sfm::SfMData &sfmdata, sfm::ESfMData
     if(sampleColors)
     {
       const P3fArraySamplePtr::element_type::value_type & color_i = sampleColors->get()[point3d_i];
-      landmark.rgb = image::RGBColor(color_i[0], color_i[1], color_i[2]);
+      landmark.rgb = image::RGBColor(static_cast<unsigned char>(color_i[0] * 255.0f),
+                                     static_cast<unsigned char>(color_i[1] * 255.0f),
+                                     static_cast<unsigned char>(color_i[2] * 255.0f)
+                                     );
     }
 
     if(sampleDescs)
@@ -214,13 +217,16 @@ bool readCamera(const ICamera& camera, const M44d& mat, sfm::SfMData& sfmData, s
   std::vector<unsigned int> sensorSize_pix = {0, 0};
   std::string mvg_intrinsicType = EINTRINSIC_enumToString(PINHOLE_CAMERA);
   std::vector<double> mvg_intrinsicParams;
+  double initialFocalLengthPix = -1;
   std::vector<std::string> rawMetadata;
-  IndexT viewId = sfmData.GetViews().size();
-  IndexT poseId = sfmData.GetViews().size();
-  IndexT intrinsicId = sfmData.GetIntrinsics().size();
+  IndexT viewId = sfmData.getViews().size();
+  IndexT poseId = sfmData.getViews().size();
+  IndexT intrinsicId = sfmData.getIntrinsics().size();
   IndexT rigId = UndefinedIndexT;
   IndexT subPoseId = UndefinedIndexT;
   IndexT resectionId = UndefinedIndexT;
+  bool poseLocked = false;
+  bool intrinsicLocked = false;
 
   if(userProps)
   {
@@ -295,6 +301,14 @@ bool readCamera(const ICamera& camera, const M44d& mat, sfm::SfMData& sfmData, s
           resectionId = getAbcProp<Alembic::Abc::IInt32Property>(userProps, *propHeader, "mvg_resectionId", sampleFrame);
         }
       }
+      if(const Alembic::Abc::PropertyHeader *propHeader = userProps.getPropertyHeader("mvg_poseLocked"))
+      {
+        poseLocked = getAbcProp<Alembic::Abc::IBoolProperty>(userProps, *propHeader, "mvg_poseLocked", sampleFrame);
+      }
+      if(const Alembic::Abc::PropertyHeader *propHeader = userProps.getPropertyHeader("mvg_poseLocked"))
+      {
+        intrinsicLocked = getAbcProp<Alembic::Abc::IBoolProperty>(userProps, *propHeader, "mvg_intrinsicLocked", sampleFrame);
+      }
       if(userProps.getPropertyHeader("mvg_sensorSizePix"))
       {
         getAbcArrayProp<Alembic::Abc::IStringArrayProperty>(userProps, "mvg_metadata", sampleFrame, rawMetadata);
@@ -315,6 +329,10 @@ bool readCamera(const ICamera& camera, const M44d& mat, sfm::SfMData& sfmData, s
       if(const Alembic::Abc::PropertyHeader *propHeader = userProps.getPropertyHeader("mvg_intrinsicType"))
       {
         mvg_intrinsicType = getAbcProp<Alembic::Abc::IStringProperty>(userProps, *propHeader, "mvg_intrinsicType", sampleFrame);
+      }
+      if(const Alembic::Abc::PropertyHeader *propHeader = userProps.getPropertyHeader("mvg_initialFocalLengthPix"))
+      {
+        initialFocalLengthPix = getAbcProp<Alembic::Abc::IDoubleProperty>(userProps, *propHeader, "mvg_initialFocalLengthPix", sampleFrame);
       }
       if(userProps.getPropertyHeader("mvg_intrinsicParams"))
       {
@@ -343,6 +361,12 @@ bool readCamera(const ICamera& camera, const M44d& mat, sfm::SfMData& sfmData, s
     pinholeIntrinsic->setWidth(sensorSize_pix.at(0));
     pinholeIntrinsic->setHeight(sensorSize_pix.at(1));
     pinholeIntrinsic->updateFromParams(mvg_intrinsicParams);
+    pinholeIntrinsic->setInitialFocalLengthPix(initialFocalLengthPix);
+
+    if(intrinsicLocked)
+      pinholeIntrinsic->lock();
+    else
+      pinholeIntrinsic->unlock();
 
     sfmData.intrinsics[intrinsicId] = pinholeIntrinsic;
   }
@@ -406,7 +430,7 @@ bool readCamera(const ICamera& camera, const M44d& mat, sfm::SfMData& sfmData, s
     }
     else
     {
-      sfmData.setPose(*view, pose);
+      sfmData.setPose(*view, CameraPose(pose, poseLocked));
     }
   }
 
@@ -447,6 +471,7 @@ bool readXform(IXform& xform, M44d& mat, sfm::SfMData& sfmData, sfm::ESfMData fl
   IndexT rigId = UndefinedIndexT;
   IndexT poseId = UndefinedIndexT;
   std::size_t nbSubPoses = 0;
+  bool rigPoseLocked = false;
 
   if(userProps)
   {
@@ -485,6 +510,11 @@ bool readXform(IXform& xform, M44d& mat, sfm::SfMData& sfmData, sfm::ESfMData fl
         nbSubPoses = getAbcProp<Alembic::Abc::IInt16Property>(userProps, *propHeader, "mvg_nbSubPoses", 0);
       }
     }
+
+    if(const Alembic::Abc::PropertyHeader *propHeader = userProps.getPropertyHeader("mvg_rigPoseLocked"))
+    {
+      rigPoseLocked = getAbcProp<Alembic::Abc::IBoolProperty>(userProps, *propHeader, "mvg_rigPoseLocked", 0);
+    }
   }
 
   if((rigId == UndefinedIndexT) && (poseId == UndefinedIndexT))
@@ -512,8 +542,8 @@ bool readXform(IXform& xform, M44d& mat, sfm::SfMData& sfmData, sfm::ESfMData fl
 
     Pose3 pose(matR, matT);
 
-    if(sfmData.GetPoses().find(poseId) == sfmData.GetPoses().end())
-      sfmData.GetPoses().emplace(poseId, pose);
+    if(sfmData.getPoses().find(poseId) == sfmData.getPoses().end())
+      sfmData.getPoses().emplace(poseId, CameraPose(pose, rigPoseLocked));
   }
 
   if(sfmData.getRigs().find(rigId) == sfmData.getRigs().end())

@@ -24,7 +24,7 @@ if(ALICEVISION_HAVE_UNCERTAINTYTE)
     message(warning "CUDA_cusparse_LIBRARY: ${CUDA_cusparse_LIBRARY}")
     
     set_property(TARGET aliceVision_utils_computeUncertainty
-      PROPERTY FOLDER AliceVision/Software/Utils
+      PROPERTY FOLDER Software/Utils
     )
     
     install(TARGETS aliceVision_utils_computeUncertainty
@@ -43,7 +43,7 @@ target_link_libraries(aliceVision_utils_voctreeCreation
 )
 
 set_property(TARGET aliceVision_utils_voctreeCreation
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_voctreeCreation
@@ -60,7 +60,7 @@ target_link_libraries(aliceVision_utils_voctreeQueryUtility
 )
 
 set_property(TARGET aliceVision_utils_voctreeQueryUtility
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_voctreeQueryUtility
@@ -77,7 +77,7 @@ target_link_libraries(aliceVision_utils_voctreeStatistics
 )
 
 set_property(TARGET aliceVision_utils_voctreeStatistics
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_voctreeStatistics
@@ -94,11 +94,11 @@ target_link_libraries(aliceVision_utils_frustumFiltering
   aliceVision_feature
   aliceVision_sfm
   aliceVision_matchingImageCollection
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_utils_frustumFiltering
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_frustumFiltering
@@ -115,11 +115,11 @@ if(ALICEVISION_HAVE_ALEMBIC)
 		aliceVision_localization
 		aliceVision_dataio
 		aliceVision_rig
-		${BOOST_LIBRARIES}
+		${Boost_LIBRARIES}
 	)
 	
 	set_property(TARGET aliceVision_utils_rigTransform
-		PROPERTY FOLDER AliceVision/Software/Utils
+		PROPERTY FOLDER Software/Utils
 	)
 
 	install(TARGETS aliceVision_utils_rigTransform
@@ -136,11 +136,11 @@ target_link_libraries(aliceVision_utils_qualityEvaluation
   aliceVision_system
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_utils_qualityEvaluation
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_qualityEvaluation
@@ -155,11 +155,11 @@ target_link_libraries(aliceVision_utils_sfmAlignment
   aliceVision_system
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_utils_sfmAlignment
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_sfmAlignment
@@ -174,11 +174,11 @@ target_link_libraries(aliceVision_utils_sfmTransform
   aliceVision_system
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_utils_sfmTransform
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_sfmTransform
@@ -202,11 +202,11 @@ target_link_libraries(aliceVision_utils_sfmColorHarmonize
   ${CLP_LIBRARIES}
   ${COINUTILS_LIBRARY}
   ${OSI_LIBRARY}
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_utils_sfmColorHarmonize
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_sfmColorHarmonize
@@ -221,11 +221,11 @@ target_link_libraries(aliceVision_utils_sfmLocalization
   aliceVision_system
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_utils_sfmLocalization
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_sfmLocalization
@@ -245,7 +245,7 @@ target_link_libraries(aliceVision_utils_keyframeSelection
 )
 
 set_property(TARGET aliceVision_utils_keyframeSelection
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_keyframeSelection
@@ -265,7 +265,7 @@ target_link_libraries(aliceVision_utils_split360Images
 )
 
 set_property(TARGET aliceVision_utils_split360Images
-  PROPERTY FOLDER AliceVision/Software/Utils
+  PROPERTY FOLDER Software/Utils
 )
 
 install(TARGETS aliceVision_utils_split360Images

@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2016 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -125,13 +126,13 @@ int main(int argc, char** argv)
   exporter.initAnimatedCamera("camera");
 
   std::size_t idx = 0;
-  for (auto &p : sfmData.GetPoses())
+  for (auto &p : sfmData.getPoses())
   {
-    const aliceVision::geometry::Pose3 rigPose = extrinsics[0].inverse() * p.second;
+    const aliceVision::geometry::Pose3 rigPose = extrinsics[0].inverse() * p.second.getTransform();
     exporter.addCameraKeyframe(rigPose, &intrinsics, "", idx, idx);
     ++idx;
   }
-  exporter.addLandmarks(sfmData.GetLandmarks());
+  exporter.addLandmarks(sfmData.getLandmarks());
 
   return EXIT_SUCCESS;
 }

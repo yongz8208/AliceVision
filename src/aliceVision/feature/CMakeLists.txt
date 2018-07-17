@@ -30,6 +30,7 @@ set(features_files_sources
   akaze/AKAZE.cpp
   akaze/descriptorLIOP.cpp
   akaze/ImageDescriber_AKAZE.cpp
+  sift/SIFT.cpp
   FeaturesPerView.cpp
   ImageDescriber.cpp
   imageDescriberCommon.cpp
@@ -70,12 +71,13 @@ add_library(aliceVision_feature
 )
 
 target_link_libraries(aliceVision_feature
-  PUBLIC aliceVision_numeric
-         aliceVision_image
-         aliceVision_multiview
-         vlsift
-         ${BOOST_LIBRARIES}
-         ${LOG_LIB}
+  PUBLIC
+    aliceVision_image
+    aliceVision_numeric
+    aliceVision_system
+    vlsift
+  PRIVATE
+    ${Boost_FILESYSTEM_LIBRARY}
 )
 
 # Link CCTAG library
@@ -104,7 +106,7 @@ install(TARGETS aliceVision_feature
 )
 
 set_property(TARGET aliceVision_feature
-  PROPERTY FOLDER AliceVision/AliceVision
+  PROPERTY FOLDER AliceVision
 )
 
 UNIT_TEST(aliceVision features "aliceVision_feature")

@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2017 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -95,11 +96,11 @@ int main(int argc, char **argv)
   sfm::Save(sfmData, outputFolder + "/scene.abc", sfm::ESfMData::ALL);
 
   // export undistorted images and thumbnail images
-  boost::progress_display progressBar(sfmData.GetViews().size(), std::cout, "Exporting Images for MayaMVG\n");
-  for(auto& viewPair : sfmData.GetViews())
+  boost::progress_display progressBar(sfmData.getViews().size(), std::cout, "Exporting Images for MayaMVG\n");
+  for(auto& viewPair : sfmData.getViews())
   {
     const sfm::View& view = *viewPair.second;
-    const std::shared_ptr<camera::IntrinsicBase> intrinsicPtr = sfmData.GetIntrinsicSharedPtr(view.getIntrinsicId());
+    const std::shared_ptr<camera::IntrinsicBase> intrinsicPtr = sfmData.getIntrinsicsharedPtr(view.getIntrinsicId());
 
     if(intrinsicPtr == nullptr)
     {
@@ -128,7 +129,7 @@ int main(int argc, char **argv)
     oiio::ImageBufAlgo::resample(proxyBuf,     imageBuf, false,     proxyROI); // no interpolation
     oiio::ImageBufAlgo::resample(thumbnailBuf, imageBuf, false, thumbnailROI); // no interpolation
 
-    const std::string basename = fs::basename(view.getImagePath());
+    const std::string basename = fs::path(view.getImagePath()).stem().string();
 
     proxyBuf.write(outputFolder + "/undistort/proxy/" + basename + "-" + std::to_string(view.getViewId()) + "-UOP.jpg");
     thumbnailBuf.write(outputFolder + "/undistort/thumbnail/" + basename + "-" + std::to_string(view.getViewId()) + "-UOT.jpg");

@@ -1,6 +1,5 @@
 // This file is part of the AliceVision project.
-// Copyright (c) 2016 AliceVision contributors.
-// Copyright (c) 2012 openMVG contributors.
+// Copyright (c) 2017 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -76,13 +75,14 @@ std::shared_ptr<camera::IntrinsicBase> getViewIntrinsic(const View& view,
   assert(defaultFocalLengthPx < 0 || defaultFieldOfView < 0);
 
   // get view informations
-  const std::string cameraBrand = view.getMetadataOrEmpty("Make");
-  const std::string cameraModel = view.getMetadataOrEmpty("Model");
-  const std::string bodySerialNumber = view.getMetadataOrEmpty("Exif:BodySerialNumber");
-  const std::string lensSerialNumber = view.getMetadataOrEmpty("Exif:LensSerialNumber");
+  const std::string& cameraBrand = view.getMetadataMake();
+  const std::string& cameraModel = view.getMetadataModel();
+  const std::string& bodySerialNumber = view.getMetadataBodySerialNumber();
+  const std::string& lensSerialNumber = view.getMetadataLensSerialNumber();
 
-  float mmFocalLength = view.hasMetadata("Exif:FocalLength") ? std::stof(view.getMetadata("Exif:FocalLength")) : -1;
+  float mmFocalLength = view.getMetadataFocalLength();
   double pxFocalLength;
+  bool hasFocalLengthInput = false;
 
   if(defaultFocalLengthPx > 0)
   {
@@ -138,6 +138,7 @@ std::shared_ptr<camera::IntrinsicBase> getViewIntrinsic(const View& view,
   {
     // Retrieve the focal from the metadata in mm and convert to pixel.
     pxFocalLength = std::max(view.getWidth(), view.getHeight()) * mmFocalLength / sensorWidth;
+    hasFocalLengthInput = true;
   }
 
   // choose intrinsic type
@@ -165,7 +166,8 @@ std::shared_ptr<camera::IntrinsicBase> getViewIntrinsic(const View& view,
 
   // create the desired intrinsic
   std::shared_ptr<camera::IntrinsicBase> intrinsic = camera::createPinholeIntrinsic(intrinsicType, view.getWidth(), view.getHeight(), pxFocalLength, ppx, ppy);
-  intrinsic->setInitialFocalLengthPix(pxFocalLength);
+  if(hasFocalLengthInput)
+    intrinsic->setInitialFocalLengthPix(pxFocalLength);
 
   // initialize distortion parameters
   switch(intrinsicType)

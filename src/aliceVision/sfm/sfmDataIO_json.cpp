@@ -1,6 +1,5 @@
 // This file is part of the AliceVision project.
-// Copyright (c) 2016 AliceVision contributors.
-// Copyright (c) 2012 openMVG contributors.
+// Copyright (c) 2017 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -99,7 +98,7 @@ void saveIntrinsic(const std::string& name, IndexT intrinsicId, const std::share
   {
     const camera::Pinhole& pinholeIntrinsic = dynamic_cast<camera::Pinhole&>(*intrinsic);
 
-    intrinsicTree.put("pxFocalLength", pinholeIntrinsic.getPxFocalLength());
+    intrinsicTree.put("pxFocalLength", pinholeIntrinsic.getFocalLengthPix());
     saveMatrix("principalPoint", pinholeIntrinsic.getPrincipalPoint(), intrinsicTree);
 
     bpt::ptree distParamsTree;
@@ -113,6 +112,8 @@ void saveIntrinsic(const std::string& name, IndexT intrinsicId, const std::share
 
     intrinsicTree.add_child("distortionParams", distParamsTree);
   }
+
+  intrinsicTree.put("locked", intrinsic->isLocked());
 
   parentTree.push_back(std::make_pair(name, intrinsicTree));
 }
@@ -145,6 +146,12 @@ void loadIntrinsic(IndexT& intrinsicId, std::shared_ptr<camera::IntrinsicBase>& 
 
   pinholeIntrinsic->setDistortionParams(distortionParams);
   intrinsic = std::static_pointer_cast<camera::IntrinsicBase>(pinholeIntrinsic);
+
+  // intrinsic lock
+  if(intrinsicTree.get<bool>("locked", false))
+    intrinsic->lock();
+  else
+    intrinsic->unlock();
 }
 
 void saveRig(const std::string& name, IndexT rigId, const Rig& rig, bpt::ptree& parentTree)
@@ -291,22 +298,22 @@ bool saveJSON(const SfMData& sfmData, const std::string& filename, ESfMData part
   }
 
   // views
-  if(saveViews && !sfmData.GetViews().empty())
+  if(saveViews && !sfmData.getViews().empty())
   {
     bpt::ptree viewsTree;
 
-    for(const auto& viewPair : sfmData.GetViews())
+    for(const auto& viewPair : sfmData.getViews())
       saveView("", *(viewPair.second), viewsTree);
 
     fileTree.add_child("views", viewsTree);
   }
 
   // intrinsics
-  if(saveIntrinsics && !sfmData.GetIntrinsics().empty())
+  if(saveIntrinsics && !sfmData.getIntrinsics().empty())
   {
     bpt::ptree intrinsicsTree;
 
-    for(const auto& intrinsicPair : sfmData.GetIntrinsics())
+    for(const auto& intrinsicPair : sfmData.getIntrinsics())
       saveIntrinsic("", intrinsicPair.first, intrinsicPair.second, intrinsicsTree);
 
     fileTree.add_child("intrinsics", intrinsicsTree);
@@ -316,16 +323,16 @@ bool saveJSON(const SfMData& sfmData, const std::string& filename, ESfMData part
   if(saveExtrinsics)
   {
     // poses
-    if(!sfmData.GetPoses().empty())
+    if(!sfmData.getPoses().empty())
     {
       bpt::ptree posesTree;
 
-      for(const auto& posePair : sfmData.GetPoses())
+      for(const auto& posePair : sfmData.getPoses())
       {
         bpt::ptree poseTree;
 
         poseTree.put("poseId", posePair.first);
-        savePose3("pose", posePair.second, poseTree);
+        saveCameraPose("pose", posePair.second, poseTree);
         posesTree.push_back(std::make_pair("", poseTree));
       }
 
@@ -345,22 +352,22 @@ bool saveJSON(const SfMData& sfmData, const std::string& filename, ESfMData part
   }
 
   // structure
-  if(saveStructure && !sfmData.GetLandmarks().empty())
+  if(saveStructure && !sfmData.getLandmarks().empty())
   {
     bpt::ptree structureTree;
 
-    for(const auto& structurePair : sfmData.GetLandmarks())
+    for(const auto& structurePair : sfmData.getLandmarks())
       saveLandmark("", structurePair.first, structurePair.second, structureTree);
 
     fileTree.add_child("structure", structureTree);
   }
 
   // control points
-  if(saveControlPoints && !sfmData.GetControl_Points().empty())
+  if(saveControlPoints && !sfmData.getControlPoints().empty())
   {
     bpt::ptree controlPointTree;
 
-    for(const auto& controlPointPair : sfmData.GetControl_Points())
+    for(const auto& controlPointPair : sfmData.getControlPoints())
       saveLandmark("", controlPointPair.first, controlPointPair.second, controlPointTree);
 
     fileTree.add_child("controlPoints", controlPointTree);
@@ -402,10 +409,26 @@ bool loadJSON(SfMData& sfmData, const std::string& filename, ESfMData partFlag, 
     for(bpt::ptree::value_type& matchingFolderNode : fileTree.get_child("matchesFolders"))
       sfmData.addMatchesFolder(matchingFolderNode.second.get_value<std::string>());
 
+  // intrinsics
+  if(loadIntrinsics && fileTree.count("intrinsics"))
+  {
+    Intrinsics& intrinsics = sfmData.getIntrinsics();
+
+    for(bpt::ptree::value_type &intrinsicNode : fileTree.get_child("intrinsics"))
+    {
+      IndexT intrinsicId;
+      std::shared_ptr<camera::IntrinsicBase> intrinsic;
+
+      loadIntrinsic(intrinsicId, intrinsic, intrinsicNode.second);
+
+      intrinsics.emplace(intrinsicId, intrinsic);
+    }
+  }
+
   // views
   if(loadViews && fileTree.count("views"))
   {
-    Views& views = sfmData.GetViews();
+    Views& views = sfmData.getViews();
 
     if(incompleteViews)
     {
@@ -422,7 +445,27 @@ bool loadJSON(SfMData& sfmData, const std::string& filename, ESfMData partFlag, 
       // update incomplete views
       #pragma omp parallel for
       for(int i = 0; i < incompleteViews.size(); ++i)
+      {
+        View& v = incompleteViews.at(i);
+        // if we have the intrinsics and the view has an valid associated intrinsics
+        // update the width and height field of View (they are mirrored)
+        if (loadIntrinsics && v.getIntrinsicId() != UndefinedIndexT)
+        {
+          const auto intrinsics = sfmData.getIntrinsicPtr(v.getIntrinsicId());
+
+          if(intrinsics == nullptr)
+          {
+            throw std::logic_error("View " + std::to_string(v.getViewId())
+                                   + " has a intrinsics id " +std::to_string(v.getIntrinsicId())
+                                   + " that cannot be found or the intrinsics are not correctly "
+                                     "loaded from the json file.");
+          }
+
+          v.setWidth(intrinsics->w());
+          v.setHeight(intrinsics->h());
+        }
         updateIncompleteView(incompleteViews.at(i));
+      }
 
       // copy complete views in the SfMData views map
       for(const View& view : incompleteViews)
@@ -440,36 +483,20 @@ bool loadJSON(SfMData& sfmData, const std::string& filename, ESfMData partFlag, 
     }
   }
 
-  // intrinsics
-  if(loadIntrinsics && fileTree.count("intrinsics"))
-  {
-    Intrinsics& intrinsics = sfmData.GetIntrinsics();
-
-    for(bpt::ptree::value_type &intrinsicNode : fileTree.get_child("intrinsics"))
-    {
-      IndexT intrinsicId;
-      std::shared_ptr<camera::IntrinsicBase> intrinsic;
-
-      loadIntrinsic(intrinsicId, intrinsic, intrinsicNode.second);
-
-      intrinsics.emplace(intrinsicId, intrinsic);
-    }
-  }
-
   // extrinsics
   if(loadExtrinsics)
   {
     // poses
     if(fileTree.count("poses"))
     {
-      Poses& poses = sfmData.GetPoses();
+      Poses& poses = sfmData.getPoses();
 
       for(bpt::ptree::value_type &poseNode : fileTree.get_child("poses"))
       {
         bpt::ptree& poseTree = poseNode.second;
-        geometry::Pose3 pose;
+        CameraPose pose;
 
-        loadPose3("pose", pose, poseTree);
+        loadCameraPose("pose", pose, poseTree);
 
         poses.emplace(poseTree.get<IndexT>("poseId"), pose);
       }
@@ -495,7 +522,7 @@ bool loadJSON(SfMData& sfmData, const std::string& filename, ESfMData partFlag, 
   // structure
   if(loadStructure && fileTree.count("structure"))
   {
-    Landmarks& structure = sfmData.GetLandmarks();
+    Landmarks& structure = sfmData.getLandmarks();
 
     for(bpt::ptree::value_type &landmarkNode : fileTree.get_child("structure"))
     {
@@ -511,7 +538,7 @@ bool loadJSON(SfMData& sfmData, const std::string& filename, ESfMData partFlag, 
   // control points
   if(loadControlPoints && fileTree.count("controlPoints"))
   {
-    Landmarks& controlPoints = sfmData.GetControl_Points();
+    Landmarks& controlPoints = sfmData.getControlPoints();
 
     for(bpt::ptree::value_type &landmarkNode : fileTree.get_child("controlPoints"))
     {

@@ -1,6 +1,26 @@
 ## AliceVision
 ## Exportation software
 
+# Export an alembic animated camera from a SfMData file
+
+if(ALICEVISION_HAVE_ALEMBIC)
+  add_executable(aliceVision_exportAnimatedCamera main_exportAnimatedCamera.cpp)
+
+  target_link_libraries(aliceVision_exportAnimatedCamera
+    aliceVision_system
+    aliceVision_sfm
+    ${BOOST_LIBRARIES}
+  )
+
+  set_property(TARGET aliceVision_exportAnimatedCamera
+    PROPERTY FOLDER Software/Export
+  )
+
+  install(TARGETS aliceVision_exportAnimatedCamera
+    DESTINATION bin/
+  )
+endif()
+
 # Export view extracted keypoints
 
 add_executable(aliceVision_exportKeypoints main_exportKeypoints.cpp)
@@ -9,11 +29,11 @@ target_link_libraries(aliceVision_exportKeypoints
   aliceVision_system
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_exportKeypoints
-  PROPERTY FOLDER AliceVision/Software/Export
+  PROPERTY FOLDER Software/Export
 )
 
 install(TARGETS aliceVision_exportKeypoints
@@ -28,11 +48,11 @@ target_link_libraries(aliceVision_exportMatches
   aliceVision_system
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_exportMatches
-  PROPERTY FOLDER AliceVision/Software/Export
+  PROPERTY FOLDER Software/Export
 )
 
 install(TARGETS aliceVision_exportMatches
@@ -47,11 +67,11 @@ target_link_libraries(aliceVision_exportTracks
   aliceVision_system
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_exportTracks
-  PROPERTY FOLDER AliceVision/Software/Export
+  PROPERTY FOLDER Software/Export
 )
 
 install(TARGETS aliceVision_exportTracks
@@ -67,11 +87,11 @@ target_link_libraries(aliceVision_exportUndistortedImages
   aliceVision_image
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_exportUndistortedImages
-  PROPERTY FOLDER AliceVision/Software/Export
+  PROPERTY FOLDER Software/Export
 )
 
 install(TARGETS aliceVision_exportUndistortedImages
@@ -87,11 +107,11 @@ target_link_libraries(aliceVision_exportPMVS
   aliceVision_image
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_exportPMVS
-  PROPERTY FOLDER AliceVision/Software/Export
+  PROPERTY FOLDER Software/Export
 )
 
 install(TARGETS aliceVision_exportPMVS
@@ -108,12 +128,12 @@ if(ALICEVISION_HAVE_ALEMBIC) # maya can read alembic file
     aliceVision_image
     aliceVision_feature
     aliceVision_sfm
-    ${BOOST_LIBRARIES}
+    ${Boost_LIBRARIES}
     ${OPENIMAGEIO_LIBRARIES}
   )
 
   set_property(TARGET aliceVision_exportMayaMVG
-    PROPERTY FOLDER AliceVision/Software/Export
+    PROPERTY FOLDER Software/Export
   )
 
   install(TARGETS aliceVision_exportMayaMVG
@@ -130,11 +150,11 @@ target_link_libraries(aliceVision_exportMVE2
   aliceVision_image
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_exportMVE2
-  PROPERTY FOLDER AliceVision/Software/Export
+  PROPERTY FOLDER Software/Export
 )
 
 install(TARGETS aliceVision_exportMVE2
@@ -150,11 +170,11 @@ target_link_libraries(aliceVision_exportMeshlab
   aliceVision_image
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_exportMeshlab
-  PROPERTY FOLDER AliceVision/Software/Export
+  PROPERTY FOLDER Software/Export
 )
 
 install(TARGETS aliceVision_exportMeshlab
@@ -170,11 +190,11 @@ target_link_libraries(aliceVision_exportMVSTexturing
   aliceVision_image
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_exportMVSTexturing
-  PROPERTY FOLDER AliceVision/Software/Export
+  PROPERTY FOLDER Software/Export
 )
 
 install(TARGETS aliceVision_exportMVSTexturing
@@ -190,11 +210,11 @@ target_link_libraries(aliceVision_exportMatlab
   aliceVision_image
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_exportMatlab
-  PROPERTY FOLDER AliceVision/Software/Export
+  PROPERTY FOLDER Software/Export
 )
 
 install(TARGETS aliceVision_exportMatlab
@@ -209,11 +229,11 @@ target_link_libraries(aliceVision_exportCameraFrustums
   aliceVision_system
   aliceVision_feature
   aliceVision_sfm
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_exportCameraFrustums
-  PROPERTY FOLDER AliceVision/Software/Export
+  PROPERTY FOLDER Software/Export
 )
 
 install(TARGETS aliceVision_exportCameraFrustums

@@ -1,4 +1,6 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2016 AliceVision contributors.
+// Copyright (c) 2012 openMVG contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -68,10 +70,12 @@ int main(int argc, char ** argv)
   std::string verboseLevel = system::EVerboseLevel_enumToString(system::Logger::getDefaultVerboseLevel());
   std::string sfmDataFilename;
   std::string outputFolder;
-  std::string matchesFolder;
-  std::string featuresFolder;
+  std::vector<std::string> featuresFolders;
+  std::vector<std::string> matchesFolders;
+
+  // user optional parameters
+
   std::string describerTypesName = EImageDescriberType_enumToString(EImageDescriberType::SIFT);
-  std::string matchesGeometricModel = "f";
 
   po::options_description allParams("AliceVision exportMatches");
 
@@ -81,20 +85,15 @@ int main(int argc, char ** argv)
       "SfMData file.")
     ("output,o", po::value<std::string>(&outputFolder)->required(),
       "Output path for matches.")
-    ("featuresFolder,f", po::value<std::string>(&featuresFolder)->required(),
-      "Path to a folder containing the extracted features.")
-    ("matchesFolder,m", po::value<std::string>(&matchesFolder)->required(),
-      "Path to a folder in which computed matches are stored.");
+    ("featuresFolders,f", po::value<std::vector<std::string>>(&featuresFolders)->multitoken()->required(),
+      "Path to folder(s) containing the extracted features.")
+    ("matchesFolders,m", po::value<std::vector<std::string>>(&matchesFolders)->multitoken()->required(),
+      "Path to folder(s) in which computed matches are stored.");
 
   po::options_description optionalParams("Optional parameters");
   optionalParams.add_options()
     ("describerTypes,d", po::value<std::string>(&describerTypesName)->default_value(describerTypesName),
       EImageDescriberType_informations().c_str());
-    ("matchesGeometricModel,g", po::value<std::string>(&matchesGeometricModel)->default_value(matchesGeometricModel),
-      "Matches geometric Model :\n"
-      "- f: fundamental matrix\n"
-      "- e: essential matrix\n"
-      "- h: homography matrix");
 
   po::options_description logParams("Log parameters");
   logParams.add_options()
@@ -155,7 +154,7 @@ int main(int argc, char ** argv)
 
   // read the features
   feature::FeaturesPerView featuresPerView;
-  if(!sfm::loadFeaturesPerView(featuresPerView, sfmData, featuresFolder, describerMethodTypes))
+  if(!sfm::loadFeaturesPerView(featuresPerView, sfmData, featuresFolders, describerMethodTypes))
   {
     ALICEVISION_LOG_ERROR("Invalid features file");
     return EXIT_FAILURE;
@@ -163,7 +162,7 @@ int main(int argc, char ** argv)
 
   // read matches
   matching::PairwiseMatches pairwiseMatches;
-  if(!sfm::loadPairwiseMatches(pairwiseMatches, sfmData, matchesFolder, describerMethodTypes, matchesGeometricModel))
+  if(!sfm::loadPairwiseMatches(pairwiseMatches, sfmData, matchesFolders, describerMethodTypes))
   {
     ALICEVISION_LOG_ERROR("Invalid matches file");
     return EXIT_FAILURE;
@@ -180,8 +179,8 @@ int main(int argc, char ** argv)
     const std::size_t I = iter->first;
     const std::size_t J = iter->second;
 
-    const View* viewI = sfmData.GetViews().at(I).get();
-    const View* viewJ = sfmData.GetViews().at(J).get();
+    const View* viewI = sfmData.getViews().at(I).get();
+    const View* viewJ = sfmData.getViews().at(J).get();
 
     const std::string viewImagePathI= viewI->getImagePath();
     const std::string viewImagePathJ= viewJ->getImagePath();

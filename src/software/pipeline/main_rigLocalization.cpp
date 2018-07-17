@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2016 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -313,7 +314,7 @@ int main(int argc, char** argv)
 #if ALICEVISION_IS_DEFINED(ALICEVISION_HAVE_ALEMBIC)
   sfm::AlembicExporter exporter(exportAlembicFile);
   exporter.initAnimatedCamera("rig");
-  exporter.addLandmarks(localizer->getSfMData().GetLandmarks());
+  exporter.addLandmarks(localizer->getSfMData().getLandmarks());
   
   boost::ptr_vector<sfm::AlembicExporter> cameraExporters;
   cameraExporters.reserve(numCameras);
@@ -374,7 +375,7 @@ int main(int argc, char** argv)
   while(haveImage)
   {
     // @fixme It's better to have arrays of pointers...
-    std::vector<image::Image<unsigned char> > vec_imageGrey;
+    std::vector<image::Image<float> > vec_imageGrey;
     std::vector<camera::PinholeRadialK3 > vec_queryIntrinsics;
     vec_imageGrey.reserve(numCameras);
     vec_queryIntrinsics.reserve(numCameras);
@@ -382,7 +383,7 @@ int main(int argc, char** argv)
     // for each camera get the image and the associated internal parameters
     for(std::size_t idCamera = 0; idCamera < numCameras; ++idCamera)
     {
-      image::Image<unsigned char> imageGrey;
+      image::Image<float> imageGrey;
       camera::PinholeRadialK3 queryIntrinsics;
       bool hasIntrinsics = false;
       std::string currentImgName;

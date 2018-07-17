@@ -10,9 +10,9 @@ target_link_libraries(aliceVision_samples_kvldFilter
   aliceVision_feature
   aliceVision_matching
   vlsift
-  ${BOOST_LIBRARIES}
+  ${Boost_LIBRARIES}
 )
 
 set_property(TARGET aliceVision_samples_kvldFilter
-  PROPERTY FOLDER AliceVision/Samples
+  PROPERTY FOLDER Samples
 )

@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2016 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -89,12 +90,12 @@ int main(int argc, char **argv)
   sfm::AlembicExporter exporter(outputSfMDataFilename);
   exporter.initAnimatedCamera("camera");
 
-  for(const auto &iter : sfmData.GetViews())
+  for(const auto &iter : sfmData.getViews())
   {
     const auto &view = iter.second;
-    const geometry::Pose3 pose_gt = sfmData.GetPoses().at(view->getPoseId());
+    const geometry::Pose3 pose_gt = sfmData.getPose(*view).getTransform();
     std::shared_ptr<camera::IntrinsicBase> intrinsic_gt = std::make_shared<camera::Pinhole>();
-    intrinsic_gt = sfmData.GetIntrinsics().at(view->getIntrinsicId());
+    intrinsic_gt = sfmData.getIntrinsics().at(view->getIntrinsicId());
     exporter.addCameraKeyframe(pose_gt, dynamic_cast<camera::Pinhole*>(intrinsic_gt.get()), view->getImagePath(), view->getViewId(), view->getIntrinsicId());
   }
   return EXIT_SUCCESS;

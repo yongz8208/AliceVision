@@ -24,26 +24,26 @@ namespace feature {
  */
 enum class EImageDescriberPreset
 {
-  LOW = 0,
-  MEDIUM,
-  NORMAL,
-  HIGH,
-  ULTRA
+  LOW = 0
+  , MEDIUM
+  , NORMAL
+  , HIGH
+  , ULTRA
 };
 
 /**
  * @brief It returns the preset from a string.
- * @param[in] preset the input string.
+ * @param[in] imageDescriberPreset the input string.
  * @return the associated describer preset.
  */
-EImageDescriberPreset EImageDescriberPreset_stringToEnum(const std::string& preset);
+EImageDescriberPreset EImageDescriberPreset_stringToEnum(const std::string& imageDescriberPreset);
 
 /**
  * @brief It converts a preset to a string.
- * @param[in] preset the describer preset enum to convert.
+ * @param[in] imageDescriberPreset the describer preset enum to convert.
  * @return the string associated to the describer preset.
  */
-std::string EImageDescriberPreset_enumToString(const EImageDescriberPreset preset);
+std::string EImageDescriberPreset_enumToString(const EImageDescriberPreset imageDescriberPreset);
 
 /**
  * @brief It write a describer preset into a stream by converting it to a string. 
@@ -142,7 +142,7 @@ public:
                         std::unique_ptr<Regions>& regions,
                         const image::Image<unsigned char>* mask = nullptr)
   {
-    throw std::logic_error("Can't use" + EImageDescriberType_enumToString(getDescriberType()) + " image describer with an 8-bit image.");
+    throw std::logic_error("Cannot use " + EImageDescriberType_enumToString(getDescriberType()) + " image describer with an 8-bit image.");
     return false;
   }
 
@@ -157,7 +157,7 @@ public:
                         std::unique_ptr<Regions>& regions,
                         const image::Image<unsigned char>* mask = nullptr)
   {
-    throw std::logic_error("Can't use" + EImageDescriberType_enumToString(getDescriberType()) + " image describer with a float image.");
+    throw std::logic_error("Cannot use " + EImageDescriberType_enumToString(getDescriberType()) + " image describer with a float image.");
     return false;
   }
 
@@ -169,21 +169,18 @@ public:
 
   // IO - one file for region features, one file for region descriptors
 
-  virtual void Load(Regions * regions,
+  void Load(Regions* regions,
     const std::string& sfileNameFeats,
     const std::string& sfileNameDescs) const
   {
     regions->Load(sfileNameFeats, sfileNameDescs);
   }
 
-  virtual void Save(const Regions * regions,
+  void Save(const Regions* regions,
     const std::string& sfileNameFeats,
-    const std::string& sfileNameDescs) const
-  {
-    regions->Save(sfileNameFeats, sfileNameDescs);
-  }
+    const std::string& sfileNameDescs) const;
 
-  virtual void LoadFeatures(Regions * regions,
+  void LoadFeatures(Regions* regions,
     const std::string& sfileNameFeats) const
   {
     regions->LoadFeatures(sfileNameFeats);

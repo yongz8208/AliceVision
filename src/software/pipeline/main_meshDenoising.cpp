@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2017 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -114,10 +115,6 @@ int main(int argc, char* argv[])
     if(!bfs::is_directory(outDirectory))
         bfs::create_directory(outDirectory);
 
-    // OpenMesh::IO::IOManager();
-    // OpenMesh: Need to force the loading of the OBJ... when it's statically linked...
-    OpenMesh::IO::_OBJReader_();
-    OpenMesh::IO::_OBJWriter_();
 
     TriMesh inMesh;
     if(!OpenMesh::IO::read_mesh(inMesh, inputMeshPath.c_str()))

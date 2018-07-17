@@ -1,4 +1,6 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2017 AliceVision contributors.
+// Copyright (c) 2015 openMVG contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -96,15 +98,15 @@ int main(int argc, char *argv[])
 
   // Export views as undistorted images (those with valid Intrinsics)
   Image<RGBfColor> image, image_ud;
-  boost::progress_display my_progress_bar( sfmData.GetViews().size() );
-  for(Views::const_iterator iter = sfmData.GetViews().begin();
-    iter != sfmData.GetViews().end(); ++iter, ++my_progress_bar)
+  boost::progress_display my_progress_bar( sfmData.getViews().size() );
+  for(Views::const_iterator iter = sfmData.getViews().begin();
+    iter != sfmData.getViews().end(); ++iter, ++my_progress_bar)
   {
     const View* view = iter->second.get();
     bool bIntrinsicDefined = view->getIntrinsicId() != UndefinedIndexT &&
-      sfmData.GetIntrinsics().find(view->getIntrinsicId()) != sfmData.GetIntrinsics().end();
+      sfmData.getIntrinsics().find(view->getIntrinsicId()) != sfmData.getIntrinsics().end();
 
-    Intrinsics::const_iterator iterIntrinsic = sfmData.GetIntrinsics().find(view->getIntrinsicId());
+    Intrinsics::const_iterator iterIntrinsic = sfmData.getIntrinsics().find(view->getIntrinsicId());
 
     const std::string srcImage = view->getImagePath();
     const std::string dstImage = (fs::path(outDirectory) / (fs::path(srcImage).stem().string() + "." + image::EImageFileType_enumToString(outputFileType))).string();

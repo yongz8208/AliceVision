@@ -1,4 +1,6 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2017 AliceVision contributors.
+// Copyright (c) 2012 openMVG contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -105,15 +107,15 @@ int main(int argc, char **argv)
 
   outfile <<  " <RasterGroup>" << outfile.widen('\n');
 
-  for(Views::const_iterator iter = sfm_data.GetViews().begin();
-      iter != sfm_data.GetViews().end(); ++iter)
+  for(Views::const_iterator iter = sfm_data.getViews().begin();
+      iter != sfm_data.getViews().end(); ++iter)
   {
     const View * view = iter->second.get();
-    if (!sfm_data.IsPoseAndIntrinsicDefined(view))
+    if (!sfm_data.isPoseAndIntrinsicDefined(view))
       continue;
 
-    const Pose3 pose = sfm_data.getPose(*view);
-    Intrinsics::const_iterator iterIntrinsic = sfm_data.GetIntrinsics().find(view->getIntrinsicId());
+    const Pose3 pose = sfm_data.getPose(*view).getTransform();
+    Intrinsics::const_iterator iterIntrinsic = sfm_data.getIntrinsics().find(view->getIntrinsicId());
 
     // We have a valid view with a corresponding camera & pose
     const std::string srcImage = view->getImagePath();

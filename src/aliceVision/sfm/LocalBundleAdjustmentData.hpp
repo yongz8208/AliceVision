@@ -1,6 +1,5 @@
 // This file is part of the AliceVision project.
-// Copyright (c) 2016 AliceVision contributors.
-// Copyright (c) 2012 openMVG contributors.
+// Copyright (c) 2017 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -33,10 +32,10 @@ public:
   std::map<int, std::size_t> getDistancesHistogram() const;
     
   /// Return the \c EState for a specific pose.
-  EState getPoseState(const IndexT poseId) const           {return _mapLBAStatePerPoseId.at(poseId);}
+  EState getPosestate(const IndexT poseId) const           {return _mapLBAStatePerPoseId.at(poseId);}
  
   /// Return the \c EState for a specific intrinsic.
-  EState getIntrinsicState(const IndexT intrinsicId) const {return _mapLBAStatePerIntrinsicId.at(intrinsicId);}
+  EState getIntrinsicstate(const IndexT intrinsicId) const {return _mapLBAStatePerIntrinsicId.at(intrinsicId);}
 
   /// Return the \c EState for a specific landmark.
   EState getLandmarkState(const IndexT landmarkId) const   {return _mapLBAStatePerLandmarkId.at(landmarkId);}

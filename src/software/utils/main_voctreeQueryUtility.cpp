@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2016 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -121,7 +122,7 @@ int main(int argc, char** argv)
   std::string sfmDataFilename;
   /// the file containing the list of features to use as query
   std::string querySfmDataFilename;
-  std::string featuresFolder;
+  std::vector<std::string> featuresFolders;
   /// the file in which to save the results
   std::string outfile;
   /// the folder in which save the symlinks of the similar images
@@ -149,15 +150,17 @@ int main(int argc, char** argv)
 
   po::options_description requiredParams("Required parameters");
   requiredParams.add_options()
-    ("input,i", po::value<std::string>(&sfmDataFilename)->required(), "a SfMData file.")
-    ("tree,t", po::value<std::string>(&treeName)->required(), "Input name for the tree file");
+    ("input,i", po::value<std::string>(&sfmDataFilename)->required(),
+     "a SfMData file.")
+    ("tree,t", po::value<std::string>(&treeName)->required(),
+     "Input name for the tree file")
+    ("featuresFolders,f", po::value<std::vector<std::string>>(&featuresFolders)->multitoken()->required(),
+      "Path to folder(s) containing the extracted features.");
 
   po::options_description optionalParams("Optional parameters");
   optionalParams.add_options()
     ("weights,w", po::value<std::string>(&weightsName),
         "Input name for the weight file, if not provided the weights will be computed on the database built with the provided set")
-    ("featuresFolder,f", po::value<string>(&featuresFolder),
-        "Path to a folder containing the extracted features and descriptors. By default, it is the folder containing the SfMData.")
     ("querySfmDataFilename,q", po::value<std::string>(&querySfmDataFilename),
         "Path to the SfMData file to be used for querying the database")
     ("saveDocumentMap", po::value<std::string>(&documentMapFile),
@@ -263,7 +266,7 @@ int main(int argc, char** argv)
     if(sfm::Load(sfmData, sfmDataFilename, sfm::ESfMData(sfm::VIEWS|sfm::INTRINSICS)))
     {
       ALICEVISION_LOG_INFO("SfMData loaded from " << sfmDataFilename << " containing: ");
-      ALICEVISION_LOG_INFO("\tnumber of views: " << sfmData.GetViews().size());
+      ALICEVISION_LOG_INFO("\tnumber of views: " << sfmData.getViews().size());
     }
     else
     {
@@ -278,7 +281,7 @@ int main(int argc, char** argv)
       if(sfm::Load(*querySfmData, querySfmDataFilename, sfm::ESfMData(sfm::VIEWS|sfm::INTRINSICS)))
       {
         ALICEVISION_LOG_INFO("SfMData loaded from " << querySfmDataFilename << " containing: ");
-        ALICEVISION_LOG_INFO("\tnumber of views: " << querySfmData->GetViews().size());
+        ALICEVISION_LOG_INFO("\tnumber of views: " << querySfmData->getViews().size());
       }
       else
       {
@@ -305,7 +308,7 @@ int main(int argc, char** argv)
 
   ALICEVISION_LOG_INFO("Reading descriptors from " << sfmDataFilename);
   auto detect_start = std::chrono::steady_clock::now();
-  std::size_t numTotFeatures = aliceVision::voctree::populateDatabase<DescriptorUChar>(sfmData, featuresFolder, tree, db, Nmax);
+  std::size_t numTotFeatures = aliceVision::voctree::populateDatabase<DescriptorUChar>(sfmData, featuresFolders, tree, db, Nmax);
   auto detect_end = std::chrono::steady_clock::now();
   auto detect_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(detect_end - detect_start);
 
@@ -360,7 +363,7 @@ int main(int argc, char** argv)
   {
     // otherwise query the database with the provided query list
     ALICEVISION_LOG_INFO("Querying the database with the documents in " << querySfmDataFilename);
-    voctree::queryDatabase<DescriptorUChar>(*querySfmData, featuresFolder, tree, db, numImageQuery, allDocMatches, histograms, distance, Nmax);
+    voctree::queryDatabase<DescriptorUChar>(*querySfmData, featuresFolders, tree, db, numImageQuery, allDocMatches, histograms, distance, Nmax);
   }
 
   // Load the corresponding RegionsPerView
@@ -376,7 +379,7 @@ int main(int argc, char** argv)
   
   
   feature::RegionsPerView regionsPerView;
-  if(!aliceVision::sfm::loadRegionsPerView(regionsPerView, sfmData, featuresFolder, {describerType}))
+  if(!aliceVision::sfm::loadRegionsPerView(regionsPerView, sfmData, featuresFolders, {describerType}))
   {
     ALICEVISION_LOG_ERROR("Invalid regions." << std::endl);
     return EXIT_FAILURE;
@@ -413,8 +416,8 @@ int main(int argc, char** argv)
 
       // get the dirname from the filename
       
-      aliceVision::sfm::Views::const_iterator it = querySfmData->GetViews().find(docMatches.first);
-      if(it == querySfmData->GetViews().end())
+      aliceVision::sfm::Views::const_iterator it = querySfmData->getViews().find(docMatches.first);
+      if(it == querySfmData->getViews().end())
       {
         // this is very wrong
         ALICEVISION_LOG_ERROR("Could not find the image file for the document " << docMatches.first << "!");
@@ -490,8 +493,8 @@ int main(int argc, char** argv)
         fs::path sylinkName; //< the name used for the symbolic link
 
         // get the dirname from the filename
-        aliceVision::sfm::Views::const_iterator it = sfmData.GetViews().find(matches[j].id);
-        if(it != sfmData.GetViews().end())
+        aliceVision::sfm::Views::const_iterator it = sfmData.getViews().find(matches[j].id);
+        if(it != sfmData.getViews().end())
         {
           absoluteFilename = it->second->getImagePath();
           sylinkName = fs::path(myToString(j, 4) + "." + std::to_string(matches[j].score) + "." + absoluteFilename.filename().string());

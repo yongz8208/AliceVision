@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2017 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -91,9 +92,9 @@ void UVAtlas::packCharts(vector<Chart>& charts, mvsUtils::MultiViewParams& mp)
     vector<Edge> alledges;
     for(int i = 0; i < _mesh.tris->size(); ++i)
     {
-        int a = (*_mesh.tris)[i].i[0];
-        int b = (*_mesh.tris)[i].i[1];
-        int c = (*_mesh.tris)[i].i[2];
+        int a = (*_mesh.tris)[i].v[0];
+        int b = (*_mesh.tris)[i].v[1];
+        int c = (*_mesh.tris)[i].v[2];
         Edge e1;
         e1.pointIDs = make_pair(min(a, b), max(a, b));
         e1.triangleIDs.emplace_back(i);

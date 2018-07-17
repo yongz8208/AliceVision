@@ -239,17 +239,17 @@ double RMSE(const SfMData & sfm_data)
 {
   // Compute residuals for each observation
   std::vector<double> vec;
-  for(Landmarks::const_iterator iterTracks = sfm_data.GetLandmarks().begin();
-      iterTracks != sfm_data.GetLandmarks().end();
+  for(Landmarks::const_iterator iterTracks = sfm_data.getLandmarks().begin();
+      iterTracks != sfm_data.getLandmarks().end();
       ++iterTracks)
   {
     const Observations & observations = iterTracks->second.observations;
     for(Observations::const_iterator itObs = observations.begin();
       itObs != observations.end(); ++itObs)
     {
-      const View * view = sfm_data.GetViews().find(itObs->first)->second.get();
-      const Pose3 pose = sfm_data.getPose(*view);
-      const std::shared_ptr<IntrinsicBase> intrinsic = sfm_data.GetIntrinsics().find(view->getIntrinsicId())->second;
+      const View * view = sfm_data.getViews().find(itObs->first)->second.get();
+      const Pose3 pose = sfm_data.getPose(*view).getTransform();
+      const std::shared_ptr<IntrinsicBase> intrinsic = sfm_data.getIntrinsics().find(view->getIntrinsicId())->second;
       const Vec2 residual = intrinsic->residual(pose, iterTracks->second.X, itObs->second.x);
       vec.push_back( residual(0) );
       vec.push_back( residual(1) );
@@ -287,7 +287,7 @@ SfMData getInputScene(const NViewDataSet & d, const NViewDatasetConfigurator & c
   for (int i = 0; i < nviews; ++i)
   {
     Pose3 pose(d._R[i], d._C[i]);
-    sfm_data.setPose(*sfm_data.views.at(i), pose);
+    sfm_data.setPose(*sfm_data.views.at(i), CameraPose(pose));
   }
 
   // 3. Intrinsic data (shared, so only one camera intrinsic is defined)
@@ -320,7 +320,7 @@ SfMData getInputScene(const NViewDataSet & d, const NViewDatasetConfigurator & c
 track::TracksPerView getTracksPerViews(const SfMData& sfmData)
 {
   track::TracksPerView tracksPerView;
-  for (const auto& landIt : sfmData.GetLandmarks())
+  for (const auto& landIt : sfmData.getLandmarks())
   {
     for (const auto& obsIt : landIt.second.observations)
     {

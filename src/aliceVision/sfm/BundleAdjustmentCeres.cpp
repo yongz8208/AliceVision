@@ -84,12 +84,12 @@ ceres::CostFunction * createRigCostFunctionFromIntrinsics(IntrinsicBase * intrin
 
 void addPose(ceres::Problem& problem,
              BA_Refine refineOptions,
-             const Pose3 & pose,
+             const CameraPose& cameraPose,
              std::vector<double*>& out_parameterBlocks,
              std::vector<double>& out_poseParams)
 {
-  const Mat3 R = pose.rotation();
-  const Vec3 t = pose.translation();
+  const Mat3& R = cameraPose.getTransform().rotation();
+  const Vec3& t = cameraPose.getTransform().translation();
 
   double angleAxis[3];
   ceres::RotationMatrixToAngleAxis((const double*)R.data(), angleAxis);
@@ -105,9 +105,12 @@ void addPose(ceres::Problem& problem,
   problem.AddParameterBlock(parameter_block, 6);
   out_parameterBlocks.push_back(parameter_block);
   // Keep the camera extrinsics constants
-  if (!(refineOptions & BA_REFINE_TRANSLATION) && !(refineOptions & BA_REFINE_ROTATION))
+
+  if(cameraPose.isLocked() ||
+     (!(refineOptions & BA_REFINE_TRANSLATION) &&
+     !(refineOptions & BA_REFINE_ROTATION)))
   {
-    //set the whole parameter block as constant for best performance.
+    //set the whole parameter block as constant for best performance or because it's locked.
     problem.SetParameterBlockConstant(parameter_block);
   }
   else
@@ -211,15 +214,15 @@ void BundleAdjustmentCeres::createProblem(SfMData & sfm_data, BA_Refine refineOp
   // parameters for cameras and points are added automatically.
   //----------
 
-  parameterBlocks.reserve(sfm_data.GetPoses().size() + sfm_data.structure.size());
+  parameterBlocks.reserve(sfm_data.getPoses().size() + sfm_data.structure.size());
 
   // Setup Poses data & subparametrization
-  for (Poses::const_iterator itPose = sfm_data.GetPoses().begin(); itPose != sfm_data.GetPoses().end(); ++itPose)
+  for (Poses::const_iterator itPose = sfm_data.getPoses().begin(); itPose != sfm_data.getPoses().end(); ++itPose)
   {
     const IndexT indexPose = itPose->first;
-    const Pose3& pose = itPose->second;
+    const CameraPose& cameraPose = itPose->second;
 
-    addPose(problem, refineOptions, pose, parameterBlocks, map_poses[indexPose]);
+    addPose(problem, refineOptions, cameraPose, parameterBlocks, map_poses[indexPose]);
   }
 
   for(const auto& rigIt : sfm_data.getRigs())
@@ -235,7 +238,9 @@ void BundleAdjustmentCeres::createProblem(SfMData & sfm_data, BA_Refine refineOp
       if(rigSubPose.status == ERigSubPoseStatus::UNINITIALIZED)
         continue;
 
-      addPose(problem, refineOptions, rigSubPose.pose, parameterBlocks, map_subposes[rigId][subPoseId]);
+     const bool locked = (rigSubPose.status == ERigSubPoseStatus::CONSTANT);
+
+      addPose(problem, refineOptions, CameraPose(rigSubPose.pose, locked), parameterBlocks, map_subposes[rigId][subPoseId]);
     }
   }
 
@@ -246,10 +251,10 @@ void BundleAdjustmentCeres::createProblem(SfMData & sfm_data, BA_Refine refineOp
   const bool refineIntrinsics = (refineOptions & BA_REFINE_INTRINSICS_FOCAL) ||
                                 (refineOptions & BA_REFINE_INTRINSICS_DISTORTION) ||
                                 refineIntrinsicsOpticalCenter;
-  for(const auto& itView: sfm_data.GetViews())
+  for(const auto& itView: sfm_data.getViews())
   {
     const View* v = itView.second.get();
-    if (sfm_data.IsPoseAndIntrinsicDefined(v))
+    if (sfm_data.isPoseAndIntrinsicDefined(v))
     {
       if(intrinsicsUsage.find(v->getIntrinsicId()) == intrinsicsUsage.end())
         intrinsicsUsage[v->getIntrinsicId()] = 1;
@@ -264,7 +269,7 @@ void BundleAdjustmentCeres::createProblem(SfMData & sfm_data, BA_Refine refineOp
   }
 
   // Setup Intrinsics data & subparametrization
-  for(const auto& itIntrinsic: sfm_data.GetIntrinsics())
+  for(const auto& itIntrinsic: sfm_data.getIntrinsics())
   {
     const IndexT idIntrinsics = itIntrinsic.first;
     if(intrinsicsUsage[idIntrinsics] == 0)
@@ -276,10 +281,10 @@ void BundleAdjustmentCeres::createProblem(SfMData & sfm_data, BA_Refine refineOp
 
     double * parameter_block = &map_intrinsics[idIntrinsics][0];
     problem.AddParameterBlock(parameter_block, map_intrinsics[idIntrinsics].size());
-    if (!refineIntrinsics)
+    if((!refineIntrinsics) || itIntrinsic.second->isLocked())
     {
       // Nothing to refine in the intrinsics,
-      // so set the whole parameter block as constant with better performances.
+      //set the whole parameter block as constant for best performance or because it's locked.
       problem.SetParameterBlockConstant(parameter_block);
     }
     else
@@ -464,7 +469,7 @@ bool BundleAdjustmentCeres::Adjust(
     ALICEVISION_LOG_DEBUG(
       "Bundle Adjustment statistics (approximated RMSE):\n"
       "\t- # views: " << sfm_data.views.size() << "\n"
-      "\t- # poses: " << sfm_data.GetPoses().size() << "\n"
+      "\t- # poses: " << sfm_data.getPoses().size() << "\n"
       "\t- # intrinsics: " << sfm_data.intrinsics.size() << "\n"
       "\t- # tracks: " << sfm_data.structure.size() << "\n"
       "\t- # residuals: " << summary.num_residuals << "\n"
@@ -476,8 +481,8 @@ bool BundleAdjustmentCeres::Adjust(
   // Update camera poses with refined data
   if ((refineOptions & BA_REFINE_ROTATION) || (refineOptions & BA_REFINE_TRANSLATION))
   {
-    for (Poses::iterator itPose = sfm_data.GetPoses().begin();
-      itPose != sfm_data.GetPoses().end(); ++itPose)
+    for (Poses::iterator itPose = sfm_data.getPoses().begin();
+      itPose != sfm_data.getPoses().end(); ++itPose)
     {
       const IndexT indexPose = itPose->first;
 
@@ -485,8 +490,7 @@ bool BundleAdjustmentCeres::Adjust(
       ceres::AngleAxisToRotationMatrix(&map_poses[indexPose][0], R_refined.data());
       Vec3 t_refined(map_poses[indexPose][3], map_poses[indexPose][4], map_poses[indexPose][5]);
       // Update the pose
-      Pose3 & pose = itPose->second;
-      pose = poseFromRT(R_refined, t_refined);
+      itPose->second.setTransform(poseFromRT(R_refined, t_refined));
     }
 
     for(const auto& rigIt : map_subposes)

@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2017 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -110,9 +111,9 @@ void retrieveSeedsPerView(
       const auto& obsACamId_it = viewIds.find(obsA.first);
       if(obsACamId_it == viewIds.end())
         continue; // this view cannot be exported to mvs, so we skip the observation
-      const View& viewA = *sfmData.GetViews().at(obsA.first).get();
-      const geometry::Pose3& poseA = sfmData.GetPoses().at(viewA.getPoseId());
-      const Pinhole * intrinsicsA = dynamic_cast<const Pinhole*>(sfmData.GetIntrinsics().at(viewA.getIntrinsicId()).get());
+      const View& viewA = *sfmData.getViews().at(obsA.first).get();
+      const geometry::Pose3 poseA = sfmData.getPose(viewA).getTransform();
+      const Pinhole * intrinsicsA = dynamic_cast<const Pinhole*>(sfmData.getIntrinsics().at(viewA.getIntrinsicId()).get());
       
       for(const auto& obsB: landmark.observations)
       {
@@ -123,9 +124,9 @@ void retrieveSeedsPerView(
         if(obsBCamId_it == viewIds.end())
           continue; // this view cannot be exported to mvs, so we skip the observation
         const unsigned short indexB = std::distance(viewIds.begin(), obsBCamId_it);
-        const View& viewB = *sfmData.GetViews().at(obsB.first).get();
-        const geometry::Pose3& poseB = sfmData.GetPoses().at(viewB.getPoseId());
-        const Pinhole * intrinsicsB = dynamic_cast<const Pinhole*>(sfmData.GetIntrinsics().at(viewB.getIntrinsicId()).get());
+        const View& viewB = *sfmData.getViews().at(obsB.first).get();
+        const geometry::Pose3 poseB = sfmData.getPose(viewB).getTransform();
+        const Pinhole * intrinsicsB = dynamic_cast<const Pinhole*>(sfmData.getIntrinsics().at(viewB.getIntrinsicId()).get());
 
         const double angle = AngleBetweenRays(
           poseA, intrinsicsA, poseB, intrinsicsB, obsA.second.x, obsB.second.x);
@@ -152,10 +153,10 @@ bool prepareDenseScene(const SfMData& sfmData, const std::string& outFolder)
   // defined view Ids
   std::set<IndexT> viewIds;
   // Export valid views as Projective Cameras:
-  for(const auto &iter : sfmData.GetViews())
+  for(const auto &iter : sfmData.getViews())
   {
     const View* view = iter.second.get();
-    if (!sfmData.IsPoseAndIntrinsicDefined(view))
+    if (!sfmData.isPoseAndIntrinsicDefined(view))
       continue;
     viewIds.insert(view->getViewId());
   }
@@ -178,10 +179,10 @@ bool prepareDenseScene(const SfMData& sfmData, const std::string& outFolder)
     std::advance(itView, i);
 
     const IndexT viewId = *itView;
-    const View* view = sfmData.GetViews().at(viewId).get();
+    const View* view = sfmData.getViews().at(viewId).get();
 
     assert(view->getViewId() == viewId);
-    Intrinsics::const_iterator iterIntrinsic = sfmData.GetIntrinsics().find(view->getIntrinsicId());
+    Intrinsics::const_iterator iterIntrinsic = sfmData.getIntrinsics().find(view->getIntrinsicId());
 
     // We have a valid view with a corresponding camera & pose
     const std::string baseFilename = std::to_string(viewId);
@@ -191,7 +192,7 @@ bool prepareDenseScene(const SfMData& sfmData, const std::string& outFolder)
     // Export camera
     {
       // Export camera pose
-      const Pose3 pose = sfmData.getPose(*view);
+      const Pose3 pose = sfmData.getPose(*view).getTransform();
       Mat34 P = iterIntrinsic->second.get()->get_projective_equivalent(pose);
       std::ofstream fileP((fs::path(outFolder) / (baseFilename + "_P.txt")).string());
       fileP << std::setprecision(10)
@@ -208,9 +209,9 @@ bool prepareDenseScene(const SfMData& sfmData, const std::string& outFolder)
                                 0,       0,       0,       1;
 
       // Export camera intrinsics
-      const Mat3 K = dynamic_cast<const Pinhole*>(sfmData.GetIntrinsicPtr(view->getIntrinsicId()))->K();
-      const Mat3 R = pose.rotation();
-      const Vec3 t = pose.translation();
+      const Mat3 K = dynamic_cast<const Pinhole*>(sfmData.getIntrinsicPtr(view->getIntrinsicId()))->K();
+      const Mat3& R = pose.rotation();
+      const Vec3& t = pose.translation();
       std::ofstream fileKRt((fs::path(outFolder) / (baseFilename + "_KRt.txt")).string());
       fileKRt << std::setprecision(10)
            << K(0, 0) << " " << K(0, 1) << " " << K(0, 2) << "\n"
@@ -295,7 +296,7 @@ bool prepareDenseScene(const SfMData& sfmData, const std::string& outFolder)
 
   for(const IndexT viewId : viewIds)
   {
-    const View* view = sfmData.GetViews().at(viewId).get();
+    const View* view = sfmData.getViews().at(viewId).get();
     os << viewId << "=" << static_cast<int>(view->getWidth()) << "x" << static_cast<int>(view->getHeight()) << os.widen('\n');
   }
 
