@@ -293,7 +293,7 @@ if(ALICEVISION_BUILD_SFM)
   install(TARGETS aliceVision_prepareDenseScene
     DESTINATION bin/
   )
-  
+
   # 3D 3D registration
   if(ALICEVISION_BUILD_REGISTRATION)
     add_executable(aliceVision_3d3dRegistration main_3d3dRegistration.cpp)
@@ -301,7 +301,6 @@ if(ALICEVISION_BUILD_SFM)
     target_link_libraries(aliceVision_3d3dRegistration
       aliceVision_system
       aliceVision_registration
-      ${PCL_LIBRARIES}
     )
 
     set_property(TARGET aliceVision_3d3dRegistration
@@ -312,7 +311,7 @@ if(ALICEVISION_BUILD_SFM)
       DESTINATION bin/
     )
   endif()
-  
+
 endif() #ALICEVISION_BUILD_SFM
 
 ## MVS software
