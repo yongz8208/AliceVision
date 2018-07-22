@@ -39,7 +39,7 @@ option(ALICEVISION_BUILD_SFM "Build AliceVision SfM part" ON)
 option(ALICEVISION_BUILD_MVS "Build AliceVision MVS part" ON)
 option(ALICEVISION_BUILD_EXAMPLES "Build AliceVision samples applications." OFF)
 option(ALICEVISION_BUILD_COVERAGE "Enable code coverage generation (gcc only)" OFF)
-option(ALICEVISION_BUILD_REGISTRATION "Build AliceVision Registration part" OFF)
+option(ALICEVISION_BUILD_REGISTRATION "Build AliceVision 3D-3D Registration part" OFF)
 trilean_option(ALICEVISION_BUILD_DOC "Build AliceVision documentation" AUTO)
 
 trilean_option(ALICEVISION_USE_OPENMP "Enable OpenMP parallelization" ON)
@@ -56,9 +56,9 @@ trilean_option(ALICEVISION_USE_OPENCV "Build opencv+aliceVision samples programs
 # Enable this to be able to use OpenCV SIFT in main_ComputeFeatures_OpenCV.
 option(ALICEVISION_USE_OCVSIFT "Add or not OpenCV SIFT in available features" OFF)
 
-option(ALICEVISION_USE_MESHSDFILTER "Use MeshSDFilter library (enable MeshDenoising and MeshDecimate)." ON)
+option(ALICEVISION_USE_MESHSDFILTER "Use MeshSDFilter library (enable MeshDenoising and MeshDecimate)" ON)
 
-option(ALICEVISION_REQUIRE_CERES_WITH_SUITESPARSE ON)
+option(ALICEVISION_REQUIRE_CERES_WITH_SUITESPARSE "Require Ceres with SuiteSparse (ensure best performances)" ON)
 
 # Default build is in Release mode
 if(NOT CMAKE_BUILD_TYPE AND NOT MSVC)
@@ -107,37 +107,19 @@ elseif()
 endif()
 
 # ==============================================================================
-# MACRO to ease UnitTesting
-# ==============================================================================
-macro(UNIT_TEST NAMESPACE NAME EXTRA_LIBS)
-  if(ALICEVISION_BUILD_TESTS)
-    add_executable(${NAMESPACE}_test_${NAME} ${NAME}_test.cpp)
-
-    set_property(TARGET ${NAMESPACE}_test_${NAME} PROPERTY FOLDER Test)
-
-    target_link_libraries(${NAMESPACE}_test_${NAME}
-                          ${EXTRA_LIBS} # Extra libs MUST be first.
-                          ${Boost_LIBRARIES} ${ALICEVISION_LIBRARY_DEPENDENCIES})
-    add_test(NAME ${NAMESPACE}_test_${NAME}
-             WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-             COMMAND $<TARGET_FILE:${NAMESPACE}_test_${NAME}> --log_level=all)
-  endif()
-endmacro()
-
-# ==============================================================================
 # MACRO utility
 # ==============================================================================
 macro(add_target_properties _target _name)
-	set(_properties)
-	foreach(_prop ${ARGN})
-		set(_properties "${_properties} ${_prop}")
-	endforeach(_prop)
-	get_target_property(_old_properties ${_target} ${_name})
-	if(NOT _old_properties)
-		# in case it's NOTFOUND
-		set(_old_properties)
-	endif(NOT _old_properties)
-	set_target_properties(${_target} PROPERTIES ${_name} "${_old_properties} ${_properties}")
+  set(_properties)
+  foreach(_prop ${ARGN})
+    set(_properties "${_properties} ${_prop}")
+  endforeach(_prop)
+  get_target_property(_old_properties ${_target} ${_name})
+  if(NOT _old_properties)
+    # in case it's NOTFOUND
+    set(_old_properties)
+  endif(NOT _old_properties)
+  set_target_properties(${_target} PROPERTIES ${_name} "${_old_properties} ${_properties}")
 endmacro(add_target_properties)
 
 # ==============================================================================
@@ -334,7 +316,7 @@ if(ALICEVISION_BUILD_SFM)
   message(STATUS "Trying to find package Ceres for aliceVision: ${Ceres_DIR}")
   if(ALICEVISION_REQUIRE_CERES_WITH_SUITESPARSE)
     message(STATUS "By default, Ceres required SuiteSparse to ensure best performances. if you explicitly need to build without it, you can use the option: -DALICEVISION_REQUIRE_CERES_WITH_SUITESPARSE=OFF")
-    find_package(Ceres QUIET REQUIRED SuiteSparse CONFIG)
+    find_package(Ceres QUIET REQUIRED COMPONENTS SuiteSparse CONFIG)
   else()
     find_package(Ceres CONFIG QUIET CONFIG)
   endif()
@@ -343,7 +325,7 @@ if(ALICEVISION_BUILD_SFM)
     message(STATUS "Ceres include dirs ${CERES_INCLUDE_DIRS}")
     message(STATUS "Ceres libraries ${CERES_LIBRARIES}")
     if(WIN32)
-        # avoid 'ERROR' macro clashing on Windows 
+        # avoid 'ERROR' macro clashing on Windows
         add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
     endif()
     include_directories(${CERES_INCLUDE_DIRS})
@@ -663,7 +645,7 @@ if(NOT ALICEVISION_USE_CUDA STREQUAL "OFF")
     set(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
     # Workaround to force deactivation of cuda static runtime for cmake < 3.10
     set(CUDA_cudart_static_LIBRARY 0)
-  else() 
+  else()
     message(STATUS "BUILD_SHARED_LIBS OFF")
     option(CUDA_USE_STATIC_CUDA_RUNTIME "Use the static version of the CUDA runtime library if available" ON)
     set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
@@ -730,6 +712,7 @@ if(ALICEVISION_HAVE_CUDA)
 
   # library required for CUDA dynamic parallelism, forgotten by CMake 3.4
   cuda_find_library_local_first(CUDA_CUDADEVRT_LIBRARY cudadevrt "\"cudadevrt\" library")
+
 endif()
 
 # ==============================================================================
@@ -875,10 +858,14 @@ endif()
 message("\n")
 
 # ==============================================================================
+# AliceVision CMake Helpers
+# ==============================================================================
+include(Helpers)
+
+# ==============================================================================
 # Internal libraries dependencies
 # ==============================================================================
 add_subdirectory(dependencies)
-
 
 # ==============================================================================
 # AliceVision modules

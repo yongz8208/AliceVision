@@ -1,4 +1,5 @@
 // This file is part of the AliceVision project.
+// Copyright (c) 2018 AliceVision contributors.
 // This Source Code Form is subject to the terms of the Mozilla Public License,
 // v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -11,6 +12,11 @@
 #include <aliceVision/system/cmdline.hpp>
 #include <pcl/console/parse.h>
 
+// These constants define the current software version.
+// They must be updated when the command line is changed.
+#define ALICEVISION_SOFTWARE_VERSION_MAJOR 1
+#define ALICEVISION_SOFTWARE_VERSION_MINOR 0
+
 using namespace aliceVision;
 using namespace aliceVision::registration;
 
@@ -21,7 +27,7 @@ int main(int argc, char** argv)
 {
     std::string alignmentMethodName = EAlignmentMethod_enumToString(EAlignmentMethod::GICP);
 
-	po::options_description allParams(
+    po::options_description allParams(
     "3D 3D registration.\n"
     "Perform registration of 3D models (e.g. SfM & LiDAR model).\n"
     "AliceVision 3d3dRegistration");
@@ -68,7 +74,7 @@ int main(int argc, char** argv)
 
   allParams.add(requiredParams).add(optionalParams).add(logParams);
 
-	po::variables_map vm;
+    po::variables_map vm;
   try
   {
     po::store(po::parse_command_line(argc, argv, allParams), vm);
@@ -96,14 +102,14 @@ int main(int argc, char** argv)
   ALICEVISION_COUT("Program called with the following parameters:");
   ALICEVISION_COUT(vm);
 
-	// ===========================================================
-	// -- Run alignement
-	// ===========================================================
+    // ===========================================================
+    // -- Run alignement
+    // ===========================================================
   ALICEVISION_COUT("Convert method");
   EAlignmentMethod method = EAlignmentMethod_stringToEnum(alignmentMethodName);
 
     ALICEVISION_COUT("Create PointcloudRegistration");
-	PointcloudRegistration reg;
+    PointcloudRegistration reg;
 
     if (reg.loadSourceCloud(sourceFile) == EXIT_FAILURE)
     {
@@ -142,7 +148,7 @@ int main(int argc, char** argv)
     if (showTimeline)
         reg.showTimeline();
     
-	if (outputFile.empty())
+    if (outputFile.empty())
     {
         ALICEVISION_CERR("Output file empty, nothing to export.");
         return EXIT_SUCCESS;
