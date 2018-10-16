@@ -60,10 +60,30 @@ option(ALICEVISION_USE_MESHSDFILTER "Use MeshSDFilter library (enable MeshDenois
 
 option(ALICEVISION_REQUIRE_CERES_WITH_SUITESPARSE "Require Ceres with SuiteSparse (ensure best performances)" ON)
 
+option(ALICEVISION_USE_RPATH "Add RPATH on software with relative paths to libraries" ON)
+
 # Default build is in Release mode
 if(NOT CMAKE_BUILD_TYPE AND NOT MSVC)
   set(CMAKE_BUILD_TYPE "Release")
 endif()
+
+# ==============================================================================
+# GNUInstallDirs CMake module
+# - Define GNU standard installation directories
+# - Provides install directory variables as defined by the GNU Coding Standards.
+# ==============================================================================
+include(GNUInstallDirs)
+
+
+if(ALICEVISION_USE_RPATH)
+  if(APPLE)
+    set(CMAKE_MACOSX_RPATH 1)
+    set(CMAKE_INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}:@loader_path")
+  elseif(UNIX)
+    set(CMAKE_INSTALL_RPATH "\\$ORIGIN/../${CMAKE_INSTALL_LIBDIR}:\\$ORIGIN")
+  endif()
+endif()
+ 
 
 # Set build path
 set(EXECUTABLE_OUTPUT_PATH "${ALICEVISION_ROOT}/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
@@ -247,7 +267,7 @@ add_definitions(${Boost_DEFINITIONS})
 # ==============================================================================
 # OpenEXR
 # ==============================================================================
-find_package(OpenEXR)
+find_package(OpenEXR REQUIRED)
 if(OPENEXR_FOUND)
   message(STATUS "OpenEXR found. (Version ${OPENEXR_VERSION})")
 else()
@@ -257,7 +277,7 @@ endif()
 # ==============================================================================
 # OpenImageIO
 # ==============================================================================
-find_package(OpenImageIO)
+find_package(OpenImageIO 1.8 REQUIRED)
 if(OPENIMAGEIO_FOUND)
   message(STATUS "OpenImageIO found.")
   if(UNIX)
@@ -324,6 +344,17 @@ if(ALICEVISION_BUILD_SFM)
   if(Ceres_FOUND)
     message(STATUS "Ceres include dirs ${CERES_INCLUDE_DIRS}")
     message(STATUS "Ceres libraries ${CERES_LIBRARIES}")
+    if(ALICEVISION_REQUIRE_CERES_WITH_SUITESPARSE)
+        # Ceres export include dirs but doesn't export suitesparse lib dependencies in CeresConfig.cmake
+        # So here is a workaround:
+        find_package(SuiteSparse)
+        message(STATUS "SUITESPARSE_LIBRARIES: ${SUITESPARSE_LIBRARIES}")
+        if(SUITESPARSE_LIBRARIES)
+            list(APPEND CERES_LIBRARIES ${SUITESPARSE_LIBRARIES})
+        endif()
+    endif()
+    message(STATUS "CERES_LIBRARIES: ${CERES_LIBRARIES}")
+    message(STATUS "CERES_INCLUDE_DIRS: ${CERES_INCLUDE_DIRS}")
     if(WIN32)
         # avoid 'ERROR' macro clashing on Windows
         add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
@@ -893,9 +924,8 @@ add_subdirectory(software)
 # Install rules
 # ==============================================================================
 
-install(EXPORT aliceVision-targets DESTINATION lib)
 install(EXPORT aliceVision-targets
-        DESTINATION share/aliceVision/cmake FILE AliceVisionTargets.cmake)
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/aliceVision/cmake FILE AliceVisionTargets.cmake)
 
 #Adapt build include paths to install path
 set(ALICEVISION_INCLUDE_DIRS
@@ -924,7 +954,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/AliceVisionConfig.cmake.in"
                "${CMAKE_CURRENT_BINARY_DIR}/AliceVisionConfig.cmake" @ONLY)
 
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/AliceVisionConfig.cmake"
-        DESTINATION share/aliceVision/cmake)
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/aliceVision/cmake)
 
 # create the config.hpp file containing all the preprocessor definitions
 set(configfile "${generatedDir}/aliceVision/config.hpp")
@@ -933,7 +963,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.hpp.in"
 
 
 install(FILES "${configfile}"
-        DESTINATION "include/aliceVision")
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/aliceVision")
 
 # Add uninstall target
 configure_file(

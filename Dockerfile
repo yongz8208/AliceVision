@@ -1,33 +1,58 @@
-FROM ubuntu:14.04
+ARG CUDA_TAG=7.0
+ARG OS_TAG=7
+ARG NPROC=1
+FROM nvidia/cuda:${CUDA_TAG}-devel-centos${OS_TAG}
+LABEL maintainer="AliceVision Team alicevision-team@googlegroups.com"
 
-# Add openMVG binaries to path
-ENV PATH $PATH:/opt/openMVG_Build/install/bin
+# use CUDA_TAG to select the image version to use
+# see https://hub.docker.com/r/nvidia/cuda/
+#
+# CUDA_TAG=8.0-devel
+# docker build --build-arg CUDA_TAG=$CUDA_TAG --tag alicevision:$CUDA_TAG .
+#
+# then execute with nvidia docker (https://github.com/nvidia/nvidia-docker/wiki/Installation-(version-2.0))
+# docker run -it --runtime=nvidia alicevision
 
-# Get dependencies
-RUN apt-get update && apt-get install -y \
-  build-essential \
-  cmake \
-  graphviz \
-  git \
-  gcc-4.8 \ 
-  gcc-4.8-multilib \  
-  libpng-dev \
-  libjpeg-dev \
-  libtiff-dev \
-  libxxf86vm1 \
-  libxxf86vm-dev \
-  libxi-dev \
-  libxrandr-dev \
-  python-dev \  
-  python-pip
 
-# Clone the openvMVG repo 
-ADD . /opt/openMVG
-RUN cd /opt/openMVG && git submodule update --init --recursive
+# OS/Version (FILE): cat /etc/issue.net
+# Cuda version (ENV): $CUDA_VERSION
 
-# Build
-RUN mkdir /opt/openMVG_Build && cd /opt/openMVG_Build && cmake -DCMAKE_BUILD_TYPE=RELEASE \
-  -DCMAKE_INSTALL_PREFIX="/opt/openMVG_Build/install" -DOpenMVG_BUILD_TESTS=ON \
-  -DOpenMVG_BUILD_EXAMPLES=ON . ../openMVG/src/ && make
+# Install all compilation tools
+# - file and openssl are needed for cmake
+RUN yum -y install \
+        file \
+        build-essential \
+        make \
+        git \
+        wget \
+        unzip \
+        yasm \
+        pkg-config \
+        libtool \
+        nasm \
+        automake \
+        openssl-devel \
+        gcc-gfortran
 
-RUN cd /opt/openMVG_Build && make test
+# Manually install cmake 3.11
+WORKDIR /opt
+RUN wget https://cmake.org/files/v3.11/cmake-3.11.0.tar.gz && tar zxvf cmake-3.11.0.tar.gz && cd cmake-3.11.0 && ./bootstrap --prefix=/usr/local  -- -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_USE_OPENSSL:BOOL=ON && make -j8 && make install
+
+ENV AV_DEV=/opt/AliceVision_git \
+    AV_BUILD=/tmp/AliceVision_build \
+    AV_INSTALL=/opt/AliceVision_install \
+    AV_BUNDLE=/opt/AliceVision_bundle \
+    PATH="${PATH}:${AV_BUNDLE}"
+
+COPY . "${AV_DEV}"
+
+WORKDIR "${AV_BUILD}"
+RUN cmake "${AV_DEV}" -DCMAKE_BUILD_TYPE=Release -DALICEVISION_BUILD_DEPENDENCIES:BOOL=ON -DINSTALL_DEPS_BUILD:BOOL=ON -DCMAKE_INSTALL_PREFIX="${AV_INSTALL}" -DALICEVISION_BUNDLE_PREFIX="${AV_BUNDLE}"
+
+WORKDIR "${AV_BUILD}"
+RUN make -j${NPROC} install && make bundle
+# && cd /opt && rm -rf "${AV_BUILD}"
+
+WORKDIR "${AV_BUNDLE}/share/aliceVision"
+RUN wget https://gitlab.com/alicevision/trainedVocabularyTreeData/raw/master/vlfeat_K80L3.SIFT.tree
+
