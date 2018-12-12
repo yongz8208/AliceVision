@@ -4,7 +4,6 @@ set(mvsUtils_files_headers
   fileIO.hpp
   ImagesCache.hpp
   MultiViewParams.hpp
-  PreMatchCams.hpp
 )
 
 # Sources
@@ -13,12 +12,13 @@ set(mvsUtils_files_sources
   fileIO.cpp
   ImagesCache.cpp
   MultiViewParams.cpp
-  PreMatchCams.cpp
 )
 
 alicevision_add_library(aliceVision_mvsUtils
   SOURCES ${mvsUtils_files_headers} ${mvsUtils_files_sources}
   PUBLIC_LINKS
+    aliceVision_numeric
+    aliceVision_multiview
     aliceVision_mvsData
     aliceVision_imageIO
   PRIVATE_LINKS

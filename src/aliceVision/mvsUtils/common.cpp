@@ -13,8 +13,6 @@
 #include <aliceVision/mvsData/Matrix3x4.hpp>
 #include <aliceVision/mvsData/OrientedPoint.hpp>
 #include <aliceVision/mvsData/Pixel.hpp>
-#include <aliceVision/mvsData/SeedPoint.hpp>
-
 
 namespace aliceVision {
 namespace mvsUtils {
@@ -301,18 +299,25 @@ void getHexahedronTriangles(Point3d tris[12][3], const Point3d hexah[8])
 }
 
 // hexahedron format ... 0-3 frontal face, 4-7 back face
-void getCamHexahedron(const MultiViewParams* mp, Point3d hexah[8], int cam, float mind, float maxd)
+void getCamHexahedron(const Point3d& position,
+                      const Matrix3x3& iCam,
+                      int width,
+                      int height,
+                      float minDepth,
+                      float maxDepth,
+                      Point3d hexah[8])
 {
-    float w = (float)mp->getWidth(cam);
-    float h = (float)mp->getHeight(cam);
-    hexah[0] = mp->CArr[cam] + (mp->iCamArr[cam] * Point2d(0.0f, 0.0f)).normalize() * mind;
-    hexah[4] = mp->CArr[cam] + (mp->iCamArr[cam] * Point2d(0.0f, 0.0f)).normalize() * maxd;
-    hexah[1] = mp->CArr[cam] + (mp->iCamArr[cam] * Point2d(w, 0.0f)).normalize() * mind;
-    hexah[5] = mp->CArr[cam] + (mp->iCamArr[cam] * Point2d(w, 0.0f)).normalize() * maxd;
-    hexah[2] = mp->CArr[cam] + (mp->iCamArr[cam] * Point2d(w, h)).normalize() * mind;
-    hexah[6] = mp->CArr[cam] + (mp->iCamArr[cam] * Point2d(w, h)).normalize() * maxd;
-    hexah[3] = mp->CArr[cam] + (mp->iCamArr[cam] * Point2d(0.0f, h)).normalize() * mind;
-    hexah[7] = mp->CArr[cam] + (mp->iCamArr[cam] * Point2d(0.0f, h)).normalize() * maxd;
+    const float w = static_cast<float>(width);
+    const float h = static_cast<float>(height);
+
+    hexah[0] = position + (iCam * Point2d(0.0f, 0.0f)).normalize() * minDepth;
+    hexah[4] = position + (iCam * Point2d(0.0f, 0.0f)).normalize() * maxDepth;
+    hexah[1] = position + (iCam * Point2d(w, 0.0f)).normalize() * minDepth;
+    hexah[5] = position + (iCam * Point2d(w, 0.0f)).normalize() * maxDepth;
+    hexah[2] = position + (iCam * Point2d(w, h)).normalize() * minDepth;
+    hexah[6] = position + (iCam * Point2d(w, h)).normalize() * maxDepth;
+    hexah[3] = position + (iCam * Point2d(0.0f, h)).normalize() * minDepth;
+    hexah[7] = position + (iCam * Point2d(0.0f, h)).normalize() * maxDepth;
 }
 
 // hexahedron format ... 0-3 frontal face, 4-7 back face
@@ -767,35 +772,6 @@ StaticVector<int>* createRandomArrayOfIntegers(int n)
     */
 
     return tracksPointsRandomIds;
-}
-
-float getCGDepthFromSeeds(const MultiViewParams* mp, int rc)
-{
-    StaticVector<SeedPoint>* seeds;
-    loadSeedsFromFile(&seeds, rc, mp, EFileType::seeds);
-
-    float midDepth = -1.0f;
-
-    if(seeds->size() > 20)
-    {
-        OrientedPoint rcplane;
-        rcplane.p = mp->CArr[rc];
-        rcplane.n = mp->iRArr[rc] * Point3d(0.0, 0.0, 1.0);
-        rcplane.n = rcplane.n.normalize();
-
-        Point3d cg = Point3d(0.0f, 0.0f, 0.0f);
-        for(int i = 0; i < seeds->size(); i++)
-        {
-            SeedPoint* sp = &(*seeds)[i];
-            cg = cg + sp->op.p;
-        }
-        cg = cg / (float)seeds->size();
-        midDepth = pointPlaneDistance(cg, rcplane.p, rcplane.n);
-    }
-
-    delete seeds;
-
-    return midDepth;
 }
 
 int findNSubstrsInString(const std::string& str, const std::string& val)

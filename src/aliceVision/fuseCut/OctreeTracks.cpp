@@ -461,8 +461,8 @@ void OctreeTracks::trackStruct::doPrintf()
         ALICEVISION_LOG_INFO("\t- cam: " << i << ", rc: " << cams[i].x << ", val: " << cams[i].y);
 }
 
-OctreeTracks::OctreeTracks(const Point3d* _voxel, mvsUtils::MultiViewParams* _mp, mvsUtils::PreMatchCams* _pc, Voxel dimensions)
-    : Fuser(_mp, _pc)
+OctreeTracks::OctreeTracks(const Point3d* _voxel, mvsUtils::MultiViewParams* _mp, Voxel dimensions)
+    : Fuser(_mp)
 {
     numSubVoxsX = dimensions.x;
     numSubVoxsY = dimensions.y;
@@ -487,11 +487,11 @@ OctreeTracks::OctreeTracks(const Point3d* _voxel, mvsUtils::MultiViewParams* _mp
     sy = svy / (float)numSubVoxsY;
     sz = svz / (float)numSubVoxsZ;
 
-    doFilterOctreeTracks = mp->_ini.get<bool>("LargeScale.doFilterOctreeTracks", true);
-    doUseWeaklySupportedPoints = mp->_ini.get<bool>("LargeScale.doUseWeaklySupportedPoints", false);
-    doUseWeaklySupportedPointCam = mp->_ini.get<bool>("LargeScale.doUseWeaklySupportedPointCam", false);
-    minNumOfConsistentCams = mp->_ini.get<int>("filter.minNumOfConsistentCams", 2);
-    simWspThr = (float)mp->_ini.get<double>("LargeScale.simWspThr", -0.0f);
+    doFilterOctreeTracks = mp->userParams.get<bool>("LargeScale.doFilterOctreeTracks", true);
+    doUseWeaklySupportedPoints = mp->userParams.get<bool>("LargeScale.doUseWeaklySupportedPoints", false);
+    doUseWeaklySupportedPointCam = mp->userParams.get<bool>("LargeScale.doUseWeaklySupportedPointCam", false);
+    minNumOfConsistentCams = mp->userParams.get<int>("filter.minNumOfConsistentCams", 2);
+    simWspThr = (float)mp->userParams.get<double>("LargeScale.simWspThr", -0.0f);
 
     int maxNumSubVoxs = std::max(std::max(numSubVoxsX, numSubVoxsY), numSubVoxsZ);
     size_ = 2;
@@ -623,7 +623,7 @@ void OctreeTracks::filterOctreeTracks2(StaticVector<trackStruct*>* tracks)
     StaticVector<trackStruct*> tracksOut;
     tracksOut.reserve(tracks->size());
 
-    float clusterSizeThr = mp->_ini.get<double>("OctreeTracks.clusterSizeThr", 2.0f);
+    float clusterSizeThr = mp->userParams.get<double>("OctreeTracks.clusterSizeThr", 2.0f);
 
     // long t1 = initEstimate();
     for(int i = 0; i < tracks->size(); i++)
@@ -671,7 +671,7 @@ void OctreeTracks::filterOctreeTracks2(StaticVector<trackStruct*>* tracks)
 StaticVector<OctreeTracks::trackStruct*>* OctreeTracks::fillOctree(int maxPts, std::string depthMapsPtsSimsTmpDir)
 {
     long t1 = clock();
-    StaticVector<int> cams = pc->findCamsWhichIntersectsHexahedron(vox, depthMapsPtsSimsTmpDir + "minMaxDepths.bin");
+    StaticVector<int> cams = mp->findCamsWhichIntersectsHexahedron(vox, depthMapsPtsSimsTmpDir + "minMaxDepths.bin");
     if(mp->verbose)
         mvsUtils::printfElapsedTime(t1, "findCamsWhichIntersectsHexahedron");
     if(mp->verbose)

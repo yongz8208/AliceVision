@@ -9,7 +9,6 @@
 #include <aliceVision/mvsData/geometry.hpp>
 #include <aliceVision/mvsData/Point3d.hpp>
 #include <aliceVision/mvsData/StaticVector.hpp>
-#include <aliceVision/mvsUtils/PreMatchCams.hpp>
 #include <aliceVision/mesh/MeshEnergyOpt.hpp>
 
 #include <boost/filesystem/operations.hpp>
@@ -19,18 +18,17 @@ namespace mesh {
 
 namespace bfs = boost::filesystem;
 
-void meshPostProcessing(Mesh*& inout_mesh, StaticVector<StaticVector<int>*>*& inout_ptsCams, StaticVector<int>& usedCams,
-                      mvsUtils::MultiViewParams& mp, mvsUtils::PreMatchCams& pc,
-                      const std::string& resultFolderName,
+void meshPostProcessing(Mesh*& inout_mesh, StaticVector<StaticVector<int>*>*& inout_ptsCams, StaticVector<int>& usedCams, mvsUtils::MultiViewParams& mp,
+                      const std::string& debugFolderName,
                       StaticVector<Point3d>* hexahsToExcludeFromResultingMesh, Point3d* hexah)
 {
     long timer = std::clock();
     ALICEVISION_LOG_INFO("Mesh post-processing.");
 
-    bool exportDebug = (float)mp._ini.get<bool>("delaunaycut.exportDebugGC", false);
+    bool exportDebug = (float)mp.userParams.get<bool>("delaunaycut.exportDebugGC", false);
 
     if(exportDebug)
-        inout_mesh->saveToObj(resultFolderName + "rawGraphCut.obj");
+        inout_mesh->saveToObj(debugFolderName + "rawGraphCut.obj");
 
     // copy ptsCams
     {
@@ -38,7 +36,7 @@ void meshPostProcessing(Mesh*& inout_mesh, StaticVector<StaticVector<int>*>*& in
         StaticVector<int>* ptIdToNewPtId;
 
         bool doRemoveTrianglesInhexahsToExcludeFromResultingMesh =
-            (bool)mp._ini.get<bool>("LargeScale.doRemoveTrianglesInhexahsToExcludeFromResultingMesh",
+            (bool)mp.userParams.get<bool>("LargeScale.doRemoveTrianglesInhexahsToExcludeFromResultingMesh",
                                        false);
         if(doRemoveTrianglesInhexahsToExcludeFromResultingMesh && hexahsToExcludeFromResultingMesh)
         {
@@ -81,7 +79,7 @@ void meshPostProcessing(Mesh*& inout_mesh, StaticVector<StaticVector<int>*>*& in
         meOpt.cleanMesh(10);
 
         if(exportDebug)
-            meOpt.saveToObj(resultFolderName + "MeshClean.obj");
+            meOpt.saveToObj(debugFolderName + "MeshClean.obj");
 
         /////////////////////////////
         {
@@ -101,13 +99,13 @@ void meshPostProcessing(Mesh*& inout_mesh, StaticVector<StaticVector<int>*>*& in
         }
 
         /////////////////////////////
-        bool doSubdivideMesh = mp._ini.get<bool>("meshEnergyOpt.doSubdivideMesh", false);
+        bool doSubdivideMesh = mp.userParams.get<bool>("meshEnergyOpt.doSubdivideMesh", false);
         if(doSubdivideMesh == true)
         {
             float subdivideMeshNTimesAvEdgeLengthThr =
-                (float)mp._ini.get<double>("meshEnergyOpt.doSubdivideMesh", 20.0);
+                (float)mp.userParams.get<double>("meshEnergyOpt.doSubdivideMesh", 20.0);
             int subdivideMaxPtsThr =
-                mp._ini.get<int>("meshEnergyOpt.subdivideMaxPtsThr", 6000000);
+                mp.userParams.get<int>("meshEnergyOpt.subdivideMaxPtsThr", 6000000);
 
             meOpt.subdivideMeshMaxEdgeLengthUpdatePtsCams(&mp, subdivideMeshNTimesAvEdgeLengthThr *
                                                           meOpt.computeAverageEdgeLength(),
@@ -150,16 +148,16 @@ void meshPostProcessing(Mesh*& inout_mesh, StaticVector<StaticVector<int>*>*& in
 
         /////////////////////////////
         bool doSmoothMesh =
-            mp._ini.get<bool>("meshEnergyOpt.doSmoothMesh", true);
-        int smoothNIter = mp._ini.get<int>("meshEnergyOpt.smoothNbIterations", 0);
+            mp.userParams.get<bool>("meshEnergyOpt.doSmoothMesh", true);
+        int smoothNIter = mp.userParams.get<int>("meshEnergyOpt.smoothNbIterations", 0);
         if(doSmoothMesh && smoothNIter != 0)
         {
             ALICEVISION_LOG_INFO("Mesh smoothing.");
-            float lambda = (float)mp._ini.get<double>("meshEnergyOpt.lambda", 1.0f);
+            float lambda = (float)mp.userParams.get<double>("meshEnergyOpt.lambda", 1.0f);
             meOpt.optimizeSmooth(lambda, smoothNIter, ptsCanMove);
 
             if(exportDebug)
-                meOpt.saveToObj(resultFolderName + "mesh_smoothed.obj");
+                meOpt.saveToObj(debugFolderName + "mesh_smoothed.obj");
         }
 
         delete ptsCanMove;

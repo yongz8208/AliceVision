@@ -12,7 +12,6 @@
 #include <aliceVision/mvsData/StaticVector.hpp>
 #include <aliceVision/mvsData/Voxel.hpp>
 #include <aliceVision/mvsUtils/common.hpp>
-#include <aliceVision/mvsUtils/PreMatchCams.hpp>
 #include <aliceVision/mesh/Mesh.hpp>
 #include <aliceVision/fuseCut/delaunayGraphCutTypes.hpp>
 #include <aliceVision/fuseCut/VoxelsGrid.hpp>
@@ -26,6 +25,11 @@
 #include <set>
 
 namespace aliceVision {
+
+namespace sfmData {
+class SfMData;
+}
+
 namespace fuseCut {
 
 
@@ -72,7 +76,6 @@ public:
     };
 
     mvsUtils::MultiViewParams* mp;
-    mvsUtils::PreMatchCams* pc;
 
     GEO::Delaunay_var _tetrahedralization;
     /// 3D points coordinates
@@ -91,7 +94,7 @@ public:
 
     static const GEO::index_t NO_TETRAHEDRON = GEO::NO_CELL;
 
-    DelaunayGraphCut(mvsUtils::MultiViewParams* _mp, mvsUtils::PreMatchCams* _pc);
+    DelaunayGraphCut(mvsUtils::MultiViewParams* _mp);
     virtual ~DelaunayGraphCut();
 
     /// Get absolute opposite vertex index
@@ -236,10 +239,8 @@ public:
     void initCells();
     void displayStatistics();
 
-    void loadDhInfo(std::string fileNameInfo);
-
-    void saveDhInfo(std::string fileNameInfo);
-    void saveDh(std::string fileNameDh, std::string fileNameInfo);
+    void saveDhInfo(const std::string& fileNameInfo);
+    void saveDh(const std::string& fileNameDh, const std::string& fileNameInfo);
 
     StaticVector<StaticVector<int>*>* createPtsCams();
     StaticVector<int>* getPtsCamsHist();
@@ -249,12 +250,12 @@ public:
 
     void addPointsFromCameraCenters(const StaticVector<int>& cams, float minDist);
 
-    void addPointsToPreventSingularities(Point3d Voxel[8], float minDist);
+    void addPointsToPreventSingularities(const Point3d Voxel[], float minDist);
 
     /**
      * @brief Add volume points to prevent singularities
      */
-    void addHelperPoints(int nGridHelperVolumePointsDim, Point3d Voxel[8], float minDist);
+    void addHelperPoints(int nGridHelperVolumePointsDim, const Point3d Voxel[], float minDist);
 
     void fuseFromDepthMaps(const StaticVector<int>& cams, const Point3d voxel[8], const FuseParams& params);
     void loadPrecomputedDensePoints(const StaticVector<int>* voxelsIds, const Point3d voxel[8], VoxelsGrid* ls);
@@ -315,9 +316,10 @@ public:
                                 bool update, Point3d hexahInflated[8], const std::string& tmpCamsPtsFolderName,
                                 const Point3d& spaceSteps);
 
-    void reconstructVoxel(Point3d hexah[8], StaticVector<int>* voxelsIds, const std::string& folderName,
-                          const std::string& tmpCamsPtsFolderName, bool removeSmallSegments,
-                          VoxelsGrid* ls, const Point3d& spaceSteps, const FuseParams& fuseParams);
+    void createDensePointCloudFromDepthMaps(Point3d hexah[8], const StaticVector<int>& cams, StaticVector<int>* voxelsIds, VoxelsGrid* ls, const FuseParams& fuseParams);
+    void createDensePointCloudFromSfM(const Point3d hexah[8], const StaticVector<int>& cams, const sfmData::SfMData& sfmData);
+    void createGraphCut(Point3d hexah[8], const StaticVector<int>& cams, VoxelsGrid* ls, const std::string& folderName, const std::string& tmpCamsPtsFolderName,
+                        bool removeSmallSegments, const Point3d& spaceSteps);
 
     /**
      * @brief Invert full/empty status of cells if they represent a too small group after labelling.

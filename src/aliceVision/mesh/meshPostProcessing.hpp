@@ -14,18 +14,13 @@ namespace aliceVision {
 
 class Point3d;
 
-namespace mvsUtils {
-class PreMatchCams;
-} // namespace mvsUtils
-
 namespace mesh {
 
 
 void filterLargeEdgeTriangles(Mesh* me, float avelthr);
 
-void meshPostProcessing(Mesh*& inout_mesh, StaticVector<StaticVector<int>*>*& inout_ptsCams, StaticVector<int>& usedCams,
-                      mvsUtils::MultiViewParams& mp, mvsUtils::PreMatchCams& pc,
-                      const std::string& resultFolderName,
+void meshPostProcessing(Mesh*& inout_mesh, StaticVector<StaticVector<int>*>*& inout_ptsCams, StaticVector<int>& usedCams, mvsUtils::MultiViewParams& mp,
+                      const std::string& debugFolderName,
                       StaticVector<Point3d>* hexahsToExcludeFromResultingMesh, Point3d* hexah);
 
 } // namespace mesh
