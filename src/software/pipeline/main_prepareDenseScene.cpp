@@ -38,12 +38,14 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 bool prepareDenseScene(const SfMData& sfmData,
+                       const std::vector<std::string>& imagesFolders,
                        int beginIndex,
                        int endIndex,
                        const std::string& outFolder,
                        image::EImageFileType outputFileType,
                        bool saveMetadata,
-                       bool saveMatricesFiles)
+                       bool saveMatricesFiles,
+                       bool evCorrection)
 {
   // defined view Ids
   std::set<IndexT> viewIds;
@@ -75,6 +77,10 @@ bool prepareDenseScene(const SfMData& sfmData,
   // export data
   boost::progress_display progressBar(viewIds.size(), std::cout, "Exporting Scene Undistorted Images\n");
 
+  // for exposure correction
+  const float medianCameraExposure = sfmData.getMedianCameraExposureSetting();
+  ALICEVISION_LOG_INFO("Median Camera Exposure: " << medianCameraExposure << ", Median EV: " << std::log2(1.0f/medianCameraExposure));
+
 #pragma omp parallel for num_threads(3)
   for(int i = 0; i < viewIds.size(); ++i)
   {
@@ -89,7 +95,9 @@ bool prepareDenseScene(const SfMData& sfmData,
     //we have a valid view with a corresponding camera & pose
     const std::string baseFilename = std::to_string(viewId);
 
-    oiio::ParamValueList metadata;
+    // get metadata from source image to be sure we get all metadata. We don't use the metadatas from the Views inside the SfMData to avoid type conversion problems with string maps.
+    std::string srcImage = view->getImagePath();
+    oiio::ParamValueList metadata = image::readImageMetadata(srcImage);
 
     // export camera
     if(saveMetadata || saveMatricesFiles)
@@ -155,25 +163,64 @@ bool prepareDenseScene(const SfMData& sfmData,
     }
 
     // export undistort image
-    {
-      const std::string srcImage = view->getImagePath();
-      std::string dstColorImage = (fs::path(outFolder) / (baseFilename + "." + image::EImageFileType_enumToString(outputFileType))).string();
+    {      
+      if(!imagesFolders.empty())
+      {
+        bool found = false;
+        for(const std::string& folder : imagesFolders)
+        {
+          const fs::recursive_directory_iterator end;
+          const auto findIt = std::find_if(fs::recursive_directory_iterator(folder), end,
+                                   [&view](const fs::directory_entry& e) {
+                                      return (e.path().stem() == std::to_string(view->getViewId()) ||
+                                              e.path().stem() == fs::path(view->getImagePath()).stem());});
 
+          if(findIt != end)
+          {
+            srcImage = (fs::path(folder) / (findIt->path().stem().string() + findIt->path().extension().string())).string();
+            found = true;
+            break;
+          }
+        }
+
+        if(!found)
+          throw std::runtime_error("Cannot find view " + std::to_string(view->getViewId()) + " image file in given folder(s)");
+      }
+
+
+      const std::string dstColorImage = (fs::path(outFolder) / (baseFilename + "." + image::EImageFileType_enumToString(outputFileType))).string();
       const IntrinsicBase* cam = iterIntrinsic->second.get();
       Image<RGBfColor> image, image_ud;
 
-      readImage(srcImage, image);
+      readImage(srcImage, image, image::EImageColorSpace::LINEAR);
 
+      // add exposure values to images metadata
+      float cameraExposure = view->getCameraExposureSetting();
+      float ev = std::log2(1.0 / cameraExposure);
+      float exposureCompensation = medianCameraExposure / cameraExposure;
+      metadata.push_back(oiio::ParamValue("AliceVision:EV", ev));
+      metadata.push_back(oiio::ParamValue("AliceVision:EVComp", exposureCompensation));
+
+      //exposure correction
+      if(evCorrection)
+      {
+          ALICEVISION_LOG_INFO("View: " << viewId << ", Ev: " << ev << ", Ev compensation: " << exposureCompensation);
+
+          for(int pix = 0; pix < image.Width() * image.Height(); ++pix)
+              image(pix) = image(pix) * exposureCompensation;
+
+      }
+      
       // undistort
       if(cam->isValid() && cam->have_disto())
       {
         // undistort the image and save it
         UndistortImage(image, cam, image_ud, FBLACK);
-        writeImage(dstColorImage, image_ud, metadata);
+        writeImage(dstColorImage, image_ud, image::EImageColorSpace::AUTO, metadata);
       }
       else
       {
-        writeImage(dstColorImage, image, metadata);
+        writeImage(dstColorImage, image, image::EImageColorSpace::AUTO, metadata);
       }
     }
 
@@ -192,10 +239,12 @@ int main(int argc, char *argv[])
   std::string sfmDataFilename;
   std::string outFolder;
   std::string outImageFileTypeName = image::EImageFileType_enumToString(image::EImageFileType::EXR);
+  std::vector<std::string> imagesFolders;
   int rangeStart = -1;
   int rangeSize = 1;
   bool saveMetadata = true;
   bool saveMatricesTxtFiles = false;
+  bool evCorrection = false;
 
   po::options_description allParams("AliceVision prepareDenseScene");
 
@@ -208,16 +257,21 @@ int main(int argc, char *argv[])
 
   po::options_description optionalParams("Optional parameters");
   optionalParams.add_options()
+    ("imagesFolders",  po::value<std::vector<std::string>>(&imagesFolders)->multitoken(),
+      "Use images from specific folder(s) instead of those specify in the SfMData file.\n"
+      "Filename should be the same or the image uid.")
     ("outputFileType", po::value<std::string>(&outImageFileTypeName)->default_value(outImageFileTypeName),
         image::EImageFileType_informations().c_str())
     ("saveMetadata", po::value<bool>(&saveMetadata)->default_value(saveMetadata),
-      "Save projections and intrinsics informations in images metadata.")
+      "Save projections and intrinsics information in images metadata.")
     ("saveMatricesTxtFiles", po::value<bool>(&saveMatricesTxtFiles)->default_value(saveMatricesTxtFiles),
-      "Save projections and intrinsics informations in text files.")
+      "Save projections and intrinsics information in text files.")
     ("rangeStart", po::value<int>(&rangeStart)->default_value(rangeStart),
       "Range image index start.")
     ("rangeSize", po::value<int>(&rangeSize)->default_value(rangeSize),
-      "Range size.");
+      "Range size.")
+    ("evCorrection", po::value<bool>(&evCorrection)->default_value(evCorrection),
+      "Correct exposure value.");
 
   po::options_description logParams("Log parameters");
   logParams.add_options()
@@ -295,7 +349,7 @@ int main(int argc, char *argv[])
   }
 
   // export
-  if(prepareDenseScene(sfmData, rangeStart, rangeEnd, outFolder, outputFileType, saveMetadata, saveMatricesTxtFiles))
+  if(prepareDenseScene(sfmData, imagesFolders, rangeStart, rangeEnd, outFolder, outputFileType, saveMetadata, saveMatricesTxtFiles, evCorrection))
     return EXIT_SUCCESS;
 
   return EXIT_FAILURE;

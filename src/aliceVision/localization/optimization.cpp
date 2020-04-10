@@ -100,6 +100,7 @@ bool refineSequence(std::vector<LocalizationResult> & vec_localizationResult,
     }
   }
   
+  const double unknownScale = 0.0;
   for(size_t viewID = 0; viewID < numViews; ++viewID)
   {
     LocalizationResult &currResult = vec_localizationResult[viewID];
@@ -165,7 +166,7 @@ bool refineSequence(std::vector<LocalizationResult> & vec_localizationResult,
         }
 
         // the 3D point exists already, add the observation
-        landmark.observations[viewID] =  sfmData::Observation(feature, match.featId);
+        landmark.observations[viewID] =  sfmData::Observation(feature, match.featId, unknownScale);
       }
       else
       {
@@ -173,7 +174,7 @@ bool refineSequence(std::vector<LocalizationResult> & vec_localizationResult,
         sfmData::Landmark newLandmark;
         newLandmark.descType = match.descType;
         newLandmark.X = currResult.getPt3D().col(idx);
-        newLandmark.observations[viewID] = sfmData::Observation(feature, match.featId);
+        newLandmark.observations[viewID] = sfmData::Observation(feature, match.featId, unknownScale);
         tinyScene.structure[match.landmarkId] = std::move(newLandmark);
       }
     }
@@ -432,7 +433,9 @@ bool refineRigPose(const std::vector<geometry::Pose3 > &vec_subPoses,
   options.minimizer_progress_to_stdout = aliceVision_options.verbose;
   options.logging_type = ceres::SILENT;
   options.num_threads = 1;//aliceVision_options._nbThreads;
+#if CERES_VERSION_MAJOR < 2
   options.num_linear_solver_threads = 1;//aliceVision_options._nbThreads;
+#endif
   
   // Solve BA
   ceres::Solver::Summary summary;
@@ -575,7 +578,9 @@ bool refineRigPose(const std::vector<Mat> &pts2d,
   options.minimizer_progress_to_stdout = true;
   //options.logging_type = ceres::SILENT;
   options.num_threads = 1;//aliceVision_options._nbThreads;
+#if CERES_VERSION_MAJOR < 2
   options.num_linear_solver_threads = 1;//aliceVision_options._nbThreads;
+#endif
   
   // Solve BA
   ceres::Solver::Summary summary;

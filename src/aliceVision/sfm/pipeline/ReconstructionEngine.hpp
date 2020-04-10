@@ -8,12 +8,15 @@
 #pragma once
 
 #include <aliceVision/sfmData/SfMData.hpp>
-#include <aliceVision/sfm/colorizeTracks.hpp>
+#include <aliceVision/sfmData/colorize.hpp>
 
 #include <string>
 
 namespace aliceVision {
 namespace sfm {
+
+void retrieveMarkersId(sfmData::SfMData& sfmData);
+
 
 /**
  * @brief Basic Reconstruction Engine.
@@ -31,7 +34,6 @@ public:
   ReconstructionEngine(const sfmData::SfMData& sfmData, const std::string& outFolder)
     : _outputFolder(outFolder)
     , _sfmData(sfmData)
-    , _hasFixedIntrinsics(false)
   {}
 
   virtual ~ReconstructionEngine() {}
@@ -43,30 +45,12 @@ public:
   virtual bool process() = 0;
 
   /**
-   * @brief Return true or false the intrinsics are fixed
-   * @return true if the intrinsics are fixed
-   */
-  inline bool hasFixedIntrinsics() const
-  {
-    return _hasFixedIntrinsics;
-  }
-
-  /**
    * @brief Get the scene SfMData
    * @return SfMData
    */
   inline const sfmData::SfMData& getSfMData() const
   {
     return _sfmData;
-  }
-
-  /**
-   * @brief Set true or false the intrinsics are fixed
-   * @param[in] fixed true if intrinsics are fixed
-   */
-  inline void setFixedIntrinsics(bool fixed)
-  {
-    _hasFixedIntrinsics = fixed;
   }
 
   /**
@@ -82,9 +66,14 @@ public:
    * @brief Colorization of the reconstructed scene
    * @return true if ok
    */
-  inline bool colorize()
+  inline void colorize()
   {
-    return colorizeTracks(_sfmData);
+    sfmData::colorizeTracks(_sfmData);
+  }
+
+  void retrieveMarkersId()
+  {
+      aliceVision::sfm::retrieveMarkersId(_sfmData);
   }
 
 protected:
@@ -92,9 +81,8 @@ protected:
   std::string _outputFolder;
   /// Internal SfMData
   sfmData::SfMData _sfmData;
-  /// Has fixed Intrinsics
-  bool _hasFixedIntrinsics;
 };
+
 
 } // namespace sfm
 } // namespace aliceVision

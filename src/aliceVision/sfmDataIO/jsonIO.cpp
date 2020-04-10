@@ -98,8 +98,9 @@ void saveIntrinsic(const std::string& name, IndexT intrinsicId, const std::share
   intrinsicTree.put("intrinsicId", intrinsicId);
   intrinsicTree.put("width", intrinsic->w());
   intrinsicTree.put("height", intrinsic->h());
-  intrinsicTree.put("type", camera::EINTRINSIC_enumToString(intrinsicType));
   intrinsicTree.put("serialNumber", intrinsic->serialNumber());
+  intrinsicTree.put("type", camera::EINTRINSIC_enumToString(intrinsicType));
+  intrinsicTree.put("initializationMode", camera::EIntrinsicInitMode_enumToString(intrinsic->getInitializationMode()));
   intrinsicTree.put("pxInitialFocalLength", intrinsic->initialFocalLengthPix());
 
   if(camera::isPinhole(intrinsicType))
@@ -132,6 +133,7 @@ void loadIntrinsic(IndexT& intrinsicId, std::shared_ptr<camera::IntrinsicBase>& 
   const unsigned int width = intrinsicTree.get<unsigned int>("width");
   const unsigned int height = intrinsicTree.get<unsigned int>("height");
   const camera::EINTRINSIC intrinsicType = camera::EINTRINSIC_stringToEnum(intrinsicTree.get<std::string>("type"));
+  const camera::EIntrinsicInitMode initializationMode = camera::EIntrinsicInitMode_stringToEnum(intrinsicTree.get<std::string>("initializationMode", camera::EIntrinsicInitMode_enumToString(camera::EIntrinsicInitMode::CALIBRATED)));
   const double pxFocalLength = intrinsicTree.get<double>("pxFocalLength");
 
   // principal point
@@ -146,12 +148,13 @@ void loadIntrinsic(IndexT& intrinsicId, std::shared_ptr<camera::IntrinsicBase>& 
   std::shared_ptr<camera::Pinhole> pinholeIntrinsic = camera::createPinholeIntrinsic(intrinsicType, width, height, pxFocalLength, principalPoint(0), principalPoint(1));
   pinholeIntrinsic->setInitialFocalLengthPix(intrinsicTree.get<double>("pxInitialFocalLength"));
   pinholeIntrinsic->setSerialNumber(intrinsicTree.get<std::string>("serialNumber"));
+  pinholeIntrinsic->setInitializationMode(initializationMode);
 
   std::vector<double> distortionParams;
   for(bpt::ptree::value_type &paramNode : intrinsicTree.get_child("distortionParams"))
     distortionParams.emplace_back(paramNode.second.get_value<double>());
 
-  // Ensure that we have the right number of params
+  // ensure that we have the right number of params
   distortionParams.resize(pinholeIntrinsic->getDistortionParams().size(), 0.0);
 
   pinholeIntrinsic->setDistortionParams(distortionParams);
@@ -207,7 +210,7 @@ void loadRig(IndexT& rigId, sfmData::Rig& rig, bpt::ptree& rigTree)
   }
 }
 
-void saveLandmark(const std::string& name, IndexT landmarkId, const sfmData::Landmark& landmark, bpt::ptree& parentTree)
+void saveLandmark(const std::string& name, IndexT landmarkId, const sfmData::Landmark& landmark, bpt::ptree& parentTree, bool saveObservations, bool saveFeatures)
 {
   bpt::ptree landmarkTree;
 
@@ -218,27 +221,35 @@ void saveLandmark(const std::string& name, IndexT landmarkId, const sfmData::Lan
   saveMatrix("X", landmark.X, landmarkTree);
 
   // observations
-  bpt::ptree observationsTree;
-  for(const auto& obsPair : landmark.observations)
+  if(saveObservations)
   {
-    bpt::ptree obsTree;
+    bpt::ptree observationsTree;
+    for(const auto& obsPair : landmark.observations)
+    {
+      bpt::ptree obsTree;
 
-    const sfmData::Observation& observation = obsPair.second;
+      const sfmData::Observation& observation = obsPair.second;
 
-    obsTree.put("observationId", obsPair.first);
-    obsTree.put("featureId", observation.id_feat);
+      obsTree.put("observationId", obsPair.first);
 
-    saveMatrix("x", observation.x, obsTree);
+      // features
+      if(saveFeatures)
+      {
+        obsTree.put("featureId", observation.id_feat);
+        saveMatrix("x", observation.x, obsTree);
+        obsTree.put("scale", observation.scale);
+      }
 
-    observationsTree.push_back(std::make_pair("", obsTree));
+      observationsTree.push_back(std::make_pair("", obsTree));
+    }
+
+    landmarkTree.add_child("observations", observationsTree);
   }
-
-  landmarkTree.add_child("observations", observationsTree);
 
   parentTree.push_back(std::make_pair(name, landmarkTree));
 }
 
-void loadLandmark(IndexT& landmarkId, sfmData::Landmark& landmark, bpt::ptree& landmarkTree)
+void loadLandmark(IndexT& landmarkId, sfmData::Landmark& landmark, bpt::ptree& landmarkTree, bool loadObservations, bool loadFeatures)
 {
   landmarkId = landmarkTree.get<IndexT>("landmarkId");
   landmark.descType = feature::EImageDescriberType_stringToEnum(landmarkTree.get<std::string>("descType"));
@@ -247,16 +258,23 @@ void loadLandmark(IndexT& landmarkId, sfmData::Landmark& landmark, bpt::ptree& l
   loadMatrix("X", landmark.X, landmarkTree);
 
   // observations
-  for(bpt::ptree::value_type &obsNode : landmarkTree.get_child("observations"))
+  if(loadObservations)
   {
-    bpt::ptree& obsTree = obsNode.second;
+    for(bpt::ptree::value_type &obsNode : landmarkTree.get_child("observations"))
+    {
+      bpt::ptree& obsTree = obsNode.second;
 
-    sfmData::Observation observation;
+      sfmData::Observation observation;
 
-    observation.id_feat = obsTree.get<IndexT>("featureId");
-    loadMatrix("x", observation.x, obsTree);
+      if(loadFeatures)
+      {
+        observation.id_feat = obsTree.get<IndexT>("featureId");
+        loadMatrix("x", observation.x, obsTree);
+        observation.scale = obsTree.get<double>("scale", 0.0);
+      }
 
-    landmark.observations.emplace(obsTree.get<IndexT>("observationId"), observation);
+      landmark.observations.emplace(obsTree.get<IndexT>("observationId"), observation);
+    }
   }
 }
 
@@ -271,6 +289,9 @@ bool saveJSON(const sfmData::SfMData& sfmData, const std::string& filename, ESfM
   const bool saveExtrinsics = (partFlag & EXTRINSICS) == EXTRINSICS;
   const bool saveStructure = (partFlag & STRUCTURE) == STRUCTURE;
   const bool saveControlPoints = (partFlag & CONTROL_POINTS) == CONTROL_POINTS;
+  const bool saveFeatures = (partFlag & OBSERVATIONS_WITH_FEATURES) == OBSERVATIONS_WITH_FEATURES;
+  const bool saveObservations = saveFeatures || ((partFlag & OBSERVATIONS) == OBSERVATIONS);
+
 
   // main tree
   bpt::ptree fileTree;
@@ -367,7 +388,7 @@ bool saveJSON(const sfmData::SfMData& sfmData, const std::string& filename, ESfM
     bpt::ptree structureTree;
 
     for(const auto& structurePair : sfmData.getLandmarks())
-      saveLandmark("", structurePair.first, structurePair.second, structureTree);
+      saveLandmark("", structurePair.first, structurePair.second, structureTree, saveObservations, saveFeatures);
 
     fileTree.add_child("structure", structureTree);
   }
@@ -400,6 +421,8 @@ bool loadJSON(sfmData::SfMData& sfmData, const std::string& filename, ESfMData p
   const bool loadExtrinsics = (partFlag & EXTRINSICS) == EXTRINSICS;
   const bool loadStructure = (partFlag & STRUCTURE) == STRUCTURE;
   const bool loadControlPoints = (partFlag & CONTROL_POINTS) == CONTROL_POINTS;
+  const bool loadFeatures = (partFlag & OBSERVATIONS_WITH_FEATURES) == OBSERVATIONS_WITH_FEATURES;
+  const bool loadObservations = loadFeatures || ((partFlag & OBSERVATIONS) == OBSERVATIONS);
 
   // main tree
   bpt::ptree fileTree;
@@ -539,7 +562,7 @@ bool loadJSON(sfmData::SfMData& sfmData, const std::string& filename, ESfMData p
       IndexT landmarkId;
       sfmData::Landmark landmark;
 
-      loadLandmark(landmarkId, landmark, landmarkNode.second);
+      loadLandmark(landmarkId, landmark, landmarkNode.second, loadObservations, loadFeatures);
 
       structure.emplace(landmarkId, landmark);
     }

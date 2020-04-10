@@ -136,10 +136,12 @@ bool readPointCloud(IObject iObj, M44d mat, sfmData::SfMData &sfmdata, ESfMData 
     }
   }
 
+  // for compatibility with files generated with a previous version
   if(userProps &&
      userProps.getPropertyHeader("mvg_visibilitySize") &&
      userProps.getPropertyHeader("mvg_visibilityIds") &&
-     userProps.getPropertyHeader("mvg_visibilityFeatPos"))
+     userProps.getPropertyHeader("mvg_visibilityFeatPos") &&
+     (flags_part & ESfMData::OBSERVATIONS || flags_part & ESfMData::OBSERVATIONS_WITH_FEATURES))
   {
     IUInt32ArrayProperty propVisibilitySize(userProps, "mvg_visibilitySize");
     UInt32ArraySamplePtr sampleVisibilitySize;
@@ -155,16 +157,16 @@ bool readPointCloud(IObject iObj, M44d mat, sfmData::SfMData &sfmdata, ESfMData 
 
     if( positions->size() != sampleVisibilitySize->size() )
     {
-      ALICEVISION_LOG_WARNING("ABC Error: number of observations per 3D point should be identical to the number of 2D features.");
-      ALICEVISION_LOG_WARNING("Number of observations per 3D point size is " << sampleVisibilitySize->size());
-      ALICEVISION_LOG_WARNING("Number of 3D points is " << positions->size());
+      ALICEVISION_LOG_ERROR("Alembic Error: number of observations per 3D point should be identical to the number of 2D features.\n"
+                            "# observations per 3D point: " << sampleVisibilitySize->size() << ".\n"
+                            "# 3D points: " << positions->size() << ".");
       return false;
     }
     if( sampleVisibilityIds->size() != sampleFeatPos2d->size() )
     {
-      ALICEVISION_LOG_WARNING("ABC Error: visibility Ids and features 2D pos should have the same size.");
-      ALICEVISION_LOG_WARNING("Visibility Ids size is " << sampleVisibilityIds->size());
-      ALICEVISION_LOG_WARNING("Features 2d Pos size is " << sampleFeatPos2d->size());
+      ALICEVISION_LOG_ERROR("Alembic Error: visibility Ids and features 2D pos should have the same size.\n"
+                            "# visibility Ids: " << sampleVisibilityIds->size() << ".\n"
+                            "# features 2D pos: " << sampleFeatPos2d->size() << ".");
       return false;
     }
 
@@ -194,6 +196,109 @@ bool readPointCloud(IObject iObj, M44d mat, sfmData::SfMData &sfmdata, ESfMData 
       }
     }
   }
+
+  if(userProps &&
+     userProps.getPropertyHeader("mvg_visibilitySize") &&
+     userProps.getPropertyHeader("mvg_visibilityViewId") &&
+     (flags_part & ESfMData::OBSERVATIONS || flags_part & ESfMData::OBSERVATIONS_WITH_FEATURES))
+  {
+    IUInt32ArrayProperty propVisibilitySize(userProps, "mvg_visibilitySize");
+    UInt32ArraySamplePtr sampleVisibilitySize;
+    propVisibilitySize.get(sampleVisibilitySize);
+
+    IUInt32ArrayProperty propVisibilityViewId(userProps, "mvg_visibilityViewId");
+    UInt32ArraySamplePtr sampleVisibilityViewId;
+    propVisibilityViewId.get(sampleVisibilityViewId);
+
+
+    if(positions->size() != sampleVisibilitySize->size())
+    {
+      ALICEVISION_LOG_ERROR("Alembic Error: number of observations per 3D point should be identical to the number of 2D features.\n"
+                            "# observations per 3D point: " << sampleVisibilitySize->size() << ".\n"
+                            "# 3D points: " << positions->size() << ".");
+      return false;
+    }
+
+    UInt32ArraySamplePtr sampleVisibilityFeatId;
+    FloatArraySamplePtr sampleVisibilityFeatPos;
+    FloatArraySamplePtr sampleVisibilityFeatScale;
+
+    if(userProps.getPropertyHeader("mvg_visibilityFeatId") &&
+       userProps.getPropertyHeader("mvg_visibilityFeatPos") &&
+       flags_part & ESfMData::OBSERVATIONS_WITH_FEATURES)
+    {
+      IUInt32ArrayProperty propVisibilityFeatId(userProps, "mvg_visibilityFeatId");
+      propVisibilityFeatId.get(sampleVisibilityFeatId);
+
+      IFloatArrayProperty propVisibilityFeatPos(userProps, "mvg_visibilityFeatPos");
+      propVisibilityFeatPos.get(sampleVisibilityFeatPos);
+
+      if(userProps && userProps.getPropertyHeader("mvg_visibilityFeatScale"))
+      {
+          IFloatArrayProperty propVisibilityFeatScale(userProps, "mvg_visibilityFeatScale");
+          propVisibilityFeatScale.get(sampleVisibilityFeatScale);
+      }
+
+      if(sampleVisibilityViewId->size() != sampleVisibilityFeatId->size() ||
+         2*sampleVisibilityViewId->size() != sampleVisibilityFeatPos->size())
+      {
+        ALICEVISION_LOG_ERROR("Alembic Error: visibility Ids and features id / 2D pos should have the same size.\n"
+                              "# view Ids: " << sampleVisibilityViewId->size() << ".\n"
+                              "# features id: " << sampleVisibilityFeatId->size() << ".\n"
+                              "# features 2D pos: " << sampleVisibilityFeatPos->size() << ".");
+        return false;
+      }
+
+    }
+    else {
+        ALICEVISION_LOG_WARNING("Alembic LOAD: NO OBSERVATIONS_WITH_FEATURES: "
+                                << ", mvg_visibilityFeatId: " << long(userProps.getPropertyHeader("mvg_visibilityFeatId"))
+                                << ", mvg_visibilityFeatPos: " << long(userProps.getPropertyHeader("mvg_visibilityFeatPos"))
+                                << ", OBSERVATIONS_WITH_FEATURES flag: " << bool(flags_part & ESfMData::OBSERVATIONS_WITH_FEATURES)
+                                );
+    }
+
+    const bool hasFeatures = (sampleVisibilityFeatId != nullptr) && (sampleVisibilityFeatId->size() > 0);
+
+    std::size_t obsGlobalIndex = 0;
+    for(std::size_t point3d_i = 0; point3d_i < positions->size(); ++point3d_i)
+    {
+      const int landmarkId = nbPointsInit + point3d_i;
+      sfmData::Landmark& landmark = sfmdata.structure[landmarkId];
+
+      // Number of observation for this 3d point
+      const std::size_t visibilitySize = (*sampleVisibilitySize)[point3d_i];
+
+      for(std::size_t obs_i = 0; obs_i < visibilitySize; ++obs_i, ++obsGlobalIndex)
+      {
+        const int viewId = (*sampleVisibilityViewId)[obsGlobalIndex];
+
+        if(hasFeatures)
+        {
+          const int featId = (*sampleVisibilityFeatId)[obsGlobalIndex];
+          sfmData::Observation& observation = landmark.observations[viewId];
+          observation.id_feat = featId;
+
+          const float posX = (*sampleVisibilityFeatPos)[2 * obsGlobalIndex];
+          const float posY = (*sampleVisibilityFeatPos)[2 * obsGlobalIndex + 1];
+          observation.x[0] = posX;
+          observation.x[1] = posY;
+
+          // for compatibility with previous version without scale
+          if(sampleVisibilityFeatScale)
+          {
+              observation.scale = (*sampleVisibilityFeatScale)[obsGlobalIndex];
+          }
+        }
+        else
+        {
+          landmark.observations[viewId] = sfmData::Observation();
+        }
+
+      }
+    }
+  }
+
   return true;
 }
 
@@ -214,6 +319,7 @@ bool readCamera(const ICamera& camera, const M44d& mat, sfmData::SfMData& sfmDat
   std::string imagePath;
   std::vector<unsigned int> sensorSize_pix = {0, 0};
   std::string mvg_intrinsicType = EINTRINSIC_enumToString(PINHOLE_CAMERA);
+  std::string mvg_intrinsicInitializationMode = EIntrinsicInitMode_enumToString(EIntrinsicInitMode::CALIBRATED);
   std::vector<double> mvg_intrinsicParams;
   double initialFocalLengthPix = -1;
   std::vector<std::string> rawMetadata;
@@ -345,6 +451,10 @@ bool readCamera(const ICamera& camera, const M44d& mat, sfmData::SfMData& sfmDat
       {
         mvg_intrinsicType = getAbcProp<Alembic::Abc::IStringProperty>(userProps, *propHeader, "mvg_intrinsicType", sampleFrame);
       }
+      if(const Alembic::Abc::PropertyHeader *propHeader = userProps.getPropertyHeader("mvg_intrinsicInitializationMode"))
+      {
+        mvg_intrinsicInitializationMode = getAbcProp<Alembic::Abc::IStringProperty>(userProps, *propHeader, "mvg_intrinsicInitializationMode", sampleFrame);
+      }
       if(const Alembic::Abc::PropertyHeader *propHeader = userProps.getPropertyHeader("mvg_initialFocalLengthPix"))
       {
         initialFocalLengthPix = getAbcProp<Alembic::Abc::IDoubleProperty>(userProps, *propHeader, "mvg_initialFocalLengthPix", sampleFrame);
@@ -352,7 +462,7 @@ bool readCamera(const ICamera& camera, const M44d& mat, sfmData::SfMData& sfmDat
       if(userProps.getPropertyHeader("mvg_intrinsicParams"))
       {
         Alembic::Abc::IDoubleArrayProperty prop(userProps, "mvg_intrinsicParams");
-        std::shared_ptr<DoubleArraySample> sample;
+        Alembic::Abc::IDoubleArrayProperty::sample_ptr_type sample;
         prop.get(sample, ISampleSelector(sampleFrame));
         mvg_intrinsicParams.assign(sample->get(), sample->get()+sample->size());
       }
@@ -377,6 +487,7 @@ bool readCamera(const ICamera& camera, const M44d& mat, sfmData::SfMData& sfmDat
     pinholeIntrinsic->setHeight(sensorSize_pix.at(1));
     pinholeIntrinsic->updateFromParams(mvg_intrinsicParams);
     pinholeIntrinsic->setInitialFocalLengthPix(initialFocalLengthPix);
+    pinholeIntrinsic->setInitializationMode(EIntrinsicInitMode_stringToEnum(mvg_intrinsicInitializationMode));
 
     if(intrinsicLocked)
       pinholeIntrinsic->lock();

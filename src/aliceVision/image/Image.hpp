@@ -49,7 +49,7 @@ namespace aliceVision
       * @param fInit Tell if the image should be initialized
       * @param val If fInit is true, set all pixel to the specified value
       */
-      inline Image( int width, int height, bool fInit = true, const T val = T() )
+      inline Image( int width, int height, bool fInit = false, const T val = T() )
       {
         Base::resize( height, width );
         if ( fInit )
@@ -92,7 +92,7 @@ namespace aliceVision
       /**
       * @brief destructor
       */
-      virtual inline ~Image() {};
+      virtual ~Image() = default;
       //-- Image construction method
       //------------------------------
 
@@ -165,6 +165,15 @@ namespace aliceVision
         return Base::operator()( y, x );
       }
 
+      inline const T& operator()( int i ) const
+      {
+        return Base::operator()( i );
+      }
+      inline T& operator()( int i )
+      {
+        return Base::operator()( i );
+      }
+
       /**
       * @brief Get low level access to the internal pixel data
       * @return const reference to internal matrix data
@@ -172,6 +181,10 @@ namespace aliceVision
       inline const Base& GetMat() const
       {
         return ( *this );
+      }
+      inline Base& GetMat()
+      {
+          return (*this);
       }
 
       //-- accessors/getters methods

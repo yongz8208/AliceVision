@@ -1,9 +1,11 @@
 # Headers
 set(mvsData_files_headers
   Color.hpp
+  Image.hpp
   geometry.hpp
   geometryTriTri.hpp
-  image.hpp
+  imageAlgo.hpp
+  imageIO.hpp
   jetColorMap.hpp
   Matrix3x3.hpp
   Matrix3x4.hpp
@@ -23,7 +25,9 @@ set(mvsData_files_headers
 # Sources
 set(mvsData_files_sources
   jetColorMap.cpp
-  image.cpp
+  Image.cpp
+  imageAlgo.cpp
+  imageIO.cpp
   geometry.cpp
   geometryTriTri.cpp
   Stat3d.cpp
@@ -37,8 +41,9 @@ alicevision_add_library(aliceVision_mvsData
   PUBLIC_LINKS
     aliceVision_system
     ${ZLIB_LIBRARIES}
-    ${Boost_FILESYSTEM_LIBRARY}
+    Boost::filesystem
+    ${OPENIMAGEIO_LIBRARIES}
   PUBLIC_INCLUDE_DIRS
     ${ZLIB_INCLUDE_DIR}
-    ${Boost_INCLUDE_DIR}
+    ${OPENIMAGEIO_INCLUDE_DIRS}
 )

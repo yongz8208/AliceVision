@@ -50,7 +50,7 @@ using namespace aliceVision::lInfinity;
 using namespace aliceVision::sfm;
 using namespace aliceVision::sfmData;
 
-typedef feature::SIOPointFeature FeatureT;
+typedef feature::PointFeature FeatureT;
 typedef vector<FeatureT> featsT;
 
 ColorHarmonizationEngineGlobal::ColorHarmonizationEngineGlobal(
@@ -254,8 +254,8 @@ bool ColorHarmonizationEngineGlobal::Process()
             p_imaNames.first,
             p_imaNames.second,
             matches,
-            feature::getSIOPointFeatures(_regionsPerView.getRegions(viewI, descType)),
-            feature::getSIOPointFeatures(_regionsPerView.getRegions(viewJ, descType)));
+            _regionsPerView.getRegions(viewI, descType).Features(),
+            _regionsPerView.getRegions(viewJ, descType).Features());
 
           dataSelector.computeMask( maskI, maskJ );
         }
@@ -281,14 +281,14 @@ bool ColorHarmonizationEngineGlobal::Process()
 
       string out_filename_J = "00_mask_J.png";
       out_filename_J = (fs::path(sEdge) / out_filename_J).string();
-      writeImage(out_filename_I, maskI);
-      writeImage(out_filename_J, maskJ);
+      writeImage(out_filename_I, maskI, image::EImageColorSpace::AUTO);
+      writeImage(out_filename_J, maskJ, image::EImageColorSpace::AUTO);
     }
 
     //-- Compute the histograms
     Image< RGBColor > imageI, imageJ;
-    readImage(p_imaNames.first, imageI);
-    readImage(p_imaNames.second, imageJ);
+    readImage(p_imaNames.first, imageI, image::EImageColorSpace::LINEAR);
+    readImage(p_imaNames.second, imageJ, image::EImageColorSpace::LINEAR);
 
     Histogram< double > histoI( minvalue, maxvalue, bin);
     Histogram< double > histoJ( minvalue, maxvalue, bin);
@@ -415,7 +415,7 @@ bool ColorHarmonizationEngineGlobal::Process()
     }
 
     Image< RGBColor > image_c;
-    readImage( _fileNames[ imaNum ], image_c );
+    readImage( _fileNames[ imaNum ], image_c , image::EImageColorSpace::LINEAR);
 
     #pragma omp parallel for
     for( int j = 0; j < image_c.Height(); ++j )
@@ -433,7 +433,7 @@ bool ColorHarmonizationEngineGlobal::Process()
       fs::create_directory(out_folder);
     const std::string out_filename = (fs::path(out_folder) / fs::path(_fileNames[ imaNum ]).filename() ).string();
 
-    writeImage( out_filename, image_c );
+    writeImage(out_filename, image_c , image::EImageColorSpace::AUTO);
   }
   return true;
 }

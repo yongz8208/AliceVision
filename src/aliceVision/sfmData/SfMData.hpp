@@ -9,6 +9,8 @@
 
 #include <aliceVision/sfmData/CameraPose.hpp>
 #include <aliceVision/sfmData/Landmark.hpp>
+#include <aliceVision/sfmData/Constraint2D.hpp>
+#include <aliceVision/sfmData/RotationPrior.hpp>
 #include <aliceVision/sfmData/View.hpp>
 #include <aliceVision/sfmData/Rig.hpp>
 #include <aliceVision/camera/camera.hpp>
@@ -41,6 +43,12 @@ using PosesUncertainty = HashMap<IndexT, Vec6>;
 /// Define uncertainty per landmark
 using LandmarksUncertainty = HashMap<IndexT, Vec3>;
 
+///Define a collection of constraints
+using Constraints2D = std::vector<Constraint2D>;
+
+///Define a collection of rotation priors
+using RotationPriors = std::vector<RotationPrior>;
+
 /**
  * @brief SfMData container
  * Store structure and camera properties
@@ -60,6 +68,10 @@ public:
   PosesUncertainty _posesUncertainty;
   /// Uncertainty per landmark
   LandmarksUncertainty _landmarksUncertainty;
+  /// 2D Constraints
+  Constraints2D constraints2d;
+  /// Rotation priors
+  RotationPriors rotationpriors;
 
   // Operators
 
@@ -101,6 +113,20 @@ public:
    */
   const Landmarks& getLandmarks() const {return structure;}
   Landmarks& getLandmarks() {return structure;}
+
+  /**
+   * @brief Get Constraints2D
+   * @return Constraints2D
+   */
+  const Constraints2D& getConstraints2D() const {return constraints2d;}
+  Constraints2D& getConstraints2D() {return constraints2d;}
+
+  /**
+   * @brief Get RotationPriors
+   * @return RotationPriors
+   */
+  const RotationPriors& getRotationPriors() const {return rotationpriors;}
+  RotationPriors& getRotationPriors() {return rotationpriors;}
 
   /**
    * @brief Get control points
@@ -297,50 +323,128 @@ public:
     return _rigs.at(view.getRigId());
   }
 
-  /**
-   * @brief Add the given features Folder
-   * @param[in] featuresFolder The given features folder
-   */
-  void addFeaturesFolder(const std::string& featuresFolder)
+  std::set<feature::EImageDescriberType> getLandmarkDescTypes() const
   {
-    _featuresFolders.emplace_back(featuresFolder);
+    std::set<feature::EImageDescriberType> output;
+    for (auto s : getLandmarks())
+    {
+      output.insert(s.second.descType);
+    }
+    return output;
+  }
+
+  std::map<feature::EImageDescriberType, int> getLandmarkDescTypesUsages() const
+  {
+    std::map<feature::EImageDescriberType, int> output;
+    for (auto s : getLandmarks())
+    {
+      if (output.find(s.second.descType) == output.end())
+      {
+        output[s.second.descType] = 1;
+      }
+      else
+      {
+        ++output[s.second.descType];
+      }
+    }
+    return output;
   }
 
   /**
-   * @brief A the given matches Folder
-   * @param[in] matchesFolder The given mathes folder
+   * @brief Get the median Camera Exposure Setting
+   * @return
    */
-  void addMatchesFolder(const std::string& matchesFolder)
+  float getMedianCameraExposureSetting() const
   {
-    _matchesFolders.emplace_back(matchesFolder);
+    std::vector<float> cameraExposureList;
+    cameraExposureList.reserve(views.size());
+
+    for(const auto& view : views)
+    {
+        float ce = view.second->getCameraExposureSetting();
+        if(ce != -1.0f)
+        {
+            auto find = std::find(std::begin(cameraExposureList), std::end(cameraExposureList), ce);
+            if(find == std::end(cameraExposureList))
+                cameraExposureList.emplace_back(ce);
+        }
+    }
+
+    std::nth_element(cameraExposureList.begin(), cameraExposureList.begin() + cameraExposureList.size()/2, cameraExposureList.end());
+    float ceMedian = cameraExposureList[cameraExposureList.size()/2];
+
+    return ceMedian;
   }
 
   /**
-   * @brief Set the given features folders
-   * @param[in] featuresFolders The given features folders
+   * @brief Add the given \p folder to features folders.
+   * @note If SfmData's absolutePath has been set, 
+   *       an absolute path will be converted to a relative one.
+   * @param[in] folder path to a folder containing features
    */
-  void setFeaturesFolders(const std::vector<std::string>& featuresFolders)
+  inline void addFeaturesFolder(const std::string& folder)
   {
-    _featuresFolders = featuresFolders;
+    addFeaturesFolders({folder});
   }
 
   /**
-   * @brief Set the given mathes folders
-   * @param[in] matchesFolders The given mathes folders
+   * @brief Add the given \p folders to features folders.
+   * @note If SfmData's absolutePath has been set, 
+   *       absolute paths will be converted to relative ones.
+   * @param[in] folders paths to folders containing features
    */
-  void setMatchesFolders(const std::vector<std::string>& matchesFolders)
+  void addFeaturesFolders(const std::vector<std::string>& folders);
+
+  /**
+   * @brief Add the given \p folder to matches folders.
+   * @note If SfmData's absolutePath has been set, 
+   *       an absolute path will be converted to a relative one.
+   * @param[in] folder path to a folder containing matches
+   */
+  inline void addMatchesFolder(const std::string& folder)
   {
-    _matchesFolders = matchesFolders;
+    addMatchesFolders({folder});
   }
 
   /**
-   * @brief Set the SfMData file folder absolute path
+   * @brief Add the given \p folders to matches folders.
+   * @note If SfmData's absolutePath has been set, 
+   *       absolute paths will be converted to relative ones.
+   * @param[in] folders paths to folders containing matches
+   */
+  void addMatchesFolders(const std::vector<std::string>& folders);
+
+  /**
+   * @brief Replace the current features folders by the given ones.
+   * @note If SfmData's absolutePath has been set, 
+   *       absolute paths will be converted to relative ones.
+   * @param[in] folders paths to folders containing features
+   */
+  inline void setFeaturesFolders(const std::vector<std::string>& folders)
+  {
+    _featuresFolders.clear();
+    addFeaturesFolders(folders);
+  }
+
+  /**
+   * @brief Replace the current matches folders by the given ones.
+   * @note If SfmData's absolutePath has been set, 
+   *       absolute paths will be converted to relative ones.
+   * @param[in] folders paths to folders containing matches
+   */
+  inline void setMatchesFolders(const std::vector<std::string>& folders)
+  {
+    _matchesFolders.clear();
+    addMatchesFolders(folders);
+  }
+
+  /**
+   * @brief Set the SfMData file absolute path.
+   * @note Internal relative features/matches folders will be remapped 
+   *       to be relative to the new absolute \p path.
    * @param[in] path The absolute path to the SfMData file folder
    */
-  void setAbsolutePath(const std::string& path)
-  {
-    _absolutePath = path;
-  }
+  void setAbsolutePath(const std::string& path);
 
   /**
    * @brief Set the given pose for the given view

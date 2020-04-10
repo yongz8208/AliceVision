@@ -44,13 +44,12 @@ void fillMatricesWithUndistortFeaturesMatches(const matching::IndMatches &putati
                                               const FeatOrRegions &feature_I,
                                               const camera::IntrinsicBase *cam_J,
                                               const FeatOrRegions &feature_J,
-  MatT & x_I, MatT & x_J)
+                                              MatT & x_I, MatT & x_J)
 {
   typedef typename MatT::Scalar Scalar; // Output matrix type
 
-  const bool I_hasValidIntrinsics = cam_I && cam_I->isValid();
-  const bool J_hasValidIntrinsics = cam_J && cam_J->isValid();
-
+  const bool I_hasValidIntrinsics = cam_I && cam_I->isValid() && cam_I->hasDistortion();
+  const bool J_hasValidIntrinsics = cam_J && cam_J->isValid() && cam_J->hasDistortion();
 
   for (size_t i = 0; i < putativeMatches.size(); ++i)
   {
@@ -84,7 +83,7 @@ void fillMatricesWithUndistortFeaturesMatches(const matching::IndMatches &putati
  * @param[out] x_J Pixel perfect features from the Jnth image putativeMatches matches
  */
 template<typename MatT, class MapFeatOrRegionPerDesc>
-void MatchesPairToMat(const matching::MatchesPerDescType &putativeMatchesPerType,
+void fillMatricesWithUndistortFeaturesMatches(const matching::MatchesPerDescType &putativeMatchesPerType,
                       const camera::IntrinsicBase *cam_I,
                       const camera::IntrinsicBase *cam_J,
                       const MapFeatOrRegionPerDesc &features_I,
@@ -138,7 +137,7 @@ void MatchesPairToMat(const matching::MatchesPerDescType &putativeMatchesPerType
  * @param[out] x_J Pixel perfect features from the Jnth image putativeMatches matches
  */
 template<typename MatT >
-void MatchesPairToMat(const Pair &pairIndex,
+void fillMatricesWithUndistortFeaturesMatches(const Pair &pairIndex,
                       const matching::MatchesPerDescType &putativeMatchesPerType,
                       const sfmData::SfMData *sfmData,
                       const feature::RegionsPerView &regionsPerView,
@@ -152,7 +151,7 @@ void MatchesPairToMat(const Pair &pairIndex,
   const camera::IntrinsicBase * cam_I = sfmData->getIntrinsicPtr(view_I->getIntrinsicId());
   const camera::IntrinsicBase * cam_J = sfmData->getIntrinsicPtr(view_J->getIntrinsicId());
 
-  MatchesPairToMat(
+  fillMatricesWithUndistortFeaturesMatches(
       putativeMatchesPerType,
       cam_I,
       cam_J,
@@ -192,8 +191,8 @@ void centerMatrix(const Eigen::Matrix2Xf & points2d, Mat3 & t);
  * @param[out] cJ The standardizing matrix to apply to (the subpart of) \c featuresJ
  * @param[in] usefulMatchesId To consider a subpart of \c matches only.
  */
-void centeringMatrices(const std::vector<feature::SIOPointFeature> & featuresI,
-                       const std::vector<feature::SIOPointFeature> & featuresJ,
+void centeringMatrices(const std::vector<feature::PointFeature> & featuresI,
+                       const std::vector<feature::PointFeature> & featuresJ,
                        const matching::IndMatches & matches,
                        Mat3 & cI,
                        Mat3 & cJ,
@@ -205,8 +204,8 @@ void centeringMatrices(const std::vector<feature::SIOPointFeature> & featuresI,
  * @param[in] feat2 The second feature with known scale & orientation.
  * @param[out] S The similarity transformation between f1 et f2 so that f2 = S * f1.
  */
-void computeSimilarity(const feature::SIOPointFeature & feat1,
-                       const feature::SIOPointFeature & feat2,
+void computeSimilarity(const feature::PointFeature & feat1,
+                       const feature::PointFeature & feat2,
                        Mat3 & S);
 
 /**
@@ -218,8 +217,8 @@ void computeSimilarity(const feature::SIOPointFeature & feat1,
  * @param[out] affineTransformation The estimated Affine transformation.
  * @param[in] usefulMatchesId To consider a subpart of \c matches only.
  */
-void estimateAffinity(const std::vector<feature::SIOPointFeature> & featuresI,
-                      const std::vector<feature::SIOPointFeature> & featuresJ,
+void estimateAffinity(const std::vector<feature::PointFeature> & featuresI,
+                      const std::vector<feature::PointFeature> & featuresJ,
                       const matching::IndMatches & matches,
                       Mat3 & affineTransformation,
                       const std::set<IndexT> & usefulMatchesId = std::set<IndexT>());
@@ -233,8 +232,8 @@ void estimateAffinity(const std::vector<feature::SIOPointFeature> & featuresI,
  * @param[out] H The estimated Homography transformation.
  * @param[in] usefulMatchesId To consider a subpart of \c matches only.
  */
-void estimateHomography(const std::vector<feature::SIOPointFeature> & featuresI,
-                        const std::vector<feature::SIOPointFeature> & featuresJ,
+void estimateHomography(const std::vector<feature::PointFeature> & featuresI,
+                        const std::vector<feature::PointFeature> & featuresJ,
                         const matching::IndMatches & matches,
                         Mat3 &H,
                         const std::set<IndexT> & usefulMatchesId = std::set<IndexT>());
@@ -248,8 +247,8 @@ void estimateHomography(const std::vector<feature::SIOPointFeature> & featuresI,
  * @param[in] tolerance The tolerated pixel error.
  * @param[in] inliersId The index in the \c matches vector.
  */
-void findTransformationInliers(const std::vector<feature::SIOPointFeature> & featuresI,
-                               const std::vector<feature::SIOPointFeature> & featuresJ, 
+void findTransformationInliers(const std::vector<feature::PointFeature> & featuresI,
+                               const std::vector<feature::PointFeature> & featuresJ,
                                const matching::IndMatches & matches,
                                const Mat3 & transformation,
                                double tolerance,
@@ -271,8 +270,8 @@ void findTransformationInliers(const Mat2X& featuresI,
                                std::set<IndexT> &inliersId);
 
 
-bool refineHomography(const std::vector<feature::SIOPointFeature> &featuresI,
-                      const std::vector<feature::SIOPointFeature> &featuresJ,
+bool refineHomography(const std::vector<feature::PointFeature> &featuresI,
+                      const std::vector<feature::PointFeature> &featuresJ,
                       const matching::IndMatches& remainingMatches,
                       Mat3& homography,
                       std::set<IndexT>& bestMatchesId,

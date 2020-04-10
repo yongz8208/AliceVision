@@ -14,7 +14,6 @@
 #include <aliceVision/sfm/BundleAdjustment.hpp>
 #include <aliceVision/sfm/BundleAdjustmentCeres.hpp>
 #include <aliceVision/sfm/LocalBundleAdjustmentGraph.hpp>
-#include <aliceVision/sfm/colorizeTracks.hpp>
 #include <aliceVision/sfm/generateReport.hpp>
 #include <aliceVision/sfm/sfmFilters.hpp>
 #include <aliceVision/sfm/sfmTriangulation.hpp>
@@ -26,6 +25,7 @@
 #include <aliceVision/sfm/pipeline/RelativePoseInfo.hpp>
 #include <aliceVision/sfm/pipeline/global/reindexGlobalSfM.hpp>
 #include <aliceVision/sfm/pipeline/global/ReconstructionEngine_globalSfM.hpp>
+#include <aliceVision/sfm/pipeline/panorama/ReconstructionEngine_panorama.hpp>
 #include <aliceVision/sfm/pipeline/sequential/ReconstructionEngine_sequentialSfM.hpp>
 #include <aliceVision/sfm/pipeline/structureFromKnownPoses/StructureEstimationFromKnownPoses.hpp>
 #include <aliceVision/sfm/pipeline/localization/SfMLocalizer.hpp>

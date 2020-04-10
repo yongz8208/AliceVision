@@ -4,6 +4,7 @@
 # Software PROPERTY FOLDER is 'Software/Convert'
 set(FOLDER_SOFTWARE_CONVERT "Software/Convert")
 
+if(ALICEVISION_BUILD_SFM)
 # Convert SfMData format (from one to another)
 alicevision_add_software(aliceVision_convertSfMFormat
   SOURCE main_convertSfMFormat.cpp
@@ -12,7 +13,9 @@ alicevision_add_software(aliceVision_convertSfMFormat
         aliceVision_feature
         aliceVision_sfmData
         aliceVision_sfmDataIO
-        ${Boost_LIBRARIES}
+        Boost::program_options
+        Boost::filesystem
+        Boost::system
 )
 
 # Convert float descriptors to unsigned char
@@ -21,8 +24,12 @@ alicevision_add_software(aliceVision_convertFloatDescriptorToUchar
   FOLDER ${FOLDER_SOFTWARE_CONVERT}
   LINKS aliceVision_localization
         aliceVision_feature
-        ${Boost_LIBRARIES}
+        Boost::program_options
+        Boost::filesystem
+        Boost::boost
+        Boost::timer
 )
+endif()
 
 # Convert image to EXR
 alicevision_add_software(aliceVision_convertRAW
@@ -30,5 +37,21 @@ alicevision_add_software(aliceVision_convertRAW
   FOLDER ${FOLDER_SOFTWARE_CONVERT}
   LINKS aliceVision_system
         aliceVision_image
-        ${Boost_LIBRARIES}
+        Boost::program_options
+        Boost::filesystem
 )
+
+if(ALICEVISION_BUILD_HDR)
+# Convert LDR to HDR
+alicevision_add_software(aliceVision_convertLDRToHDR
+  SOURCE main_convertLDRToHDR.cpp
+  FOLDER ${FOLDER_SOFTWARE_CONVERT}
+  LINKS aliceVision_system
+        aliceVision_image
+        aliceVision_hdr
+        aliceVision_sfmData
+        aliceVision_sfmDataIO
+        Boost::program_options
+        Boost::filesystem
+)
+endif()

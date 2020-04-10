@@ -22,8 +22,8 @@ namespace feature {
 ImageDescriber_CCTAG::CCTagParameters::CCTagParameters(size_t nRings)
   : _internalParams(new cctag::Parameters(nRings))
 {
-#ifdef WITH_CUDA // CCTAG_WITH_CUDA
-  _internalParams->_useCuda = system::gpuSupportCUDA(3,5);
+#ifdef CCTAG_WITH_CUDA // CCTAG_WITH_CUDA
+  _internalParams->_useCuda = gpu::gpuSupportCUDA(3,5);
 #else
   _internalParams->_useCuda = false;
 #endif
@@ -122,10 +122,12 @@ bool ImageDescriber_CCTAG::describe(const image::Image<unsigned char>& image,
 #else //todo: #ifdef depreciated
   cctag::MemoryPool::instance().updateMemoryAuthorizedWithRAM();
   cctag::View cctagView((const unsigned char *) image.data(), image.Width(), image.Height(), image.Depth()*image.Width());
-  boost::ptr_list<cctag::ICCTag> cctags;
   cctag::cctagDetection(cctags, _cudaPipe, 1 ,cctagView._grayView ,*_params._internalParams, durations );
 #endif
   durations->print( std::cerr );
+
+  // There is no notion of orientation in CCTag
+  const float orientation = 0.0f;
 
   for (const auto & cctag : cctags)
   {
@@ -141,7 +143,8 @@ bool ImageDescriber_CCTAG::describe(const image::Image<unsigned char>& image,
       }
       desc[cctag.id()] = (unsigned char) 255;
       regionsCasted->Descriptors().push_back(desc);
-      regionsCasted->Features().push_back(SIOPointFeature(cctag.x(), cctag.y()));
+      const float scale = std::max(cctag.outerEllipse().a(), cctag.outerEllipse().b());
+      regionsCasted->Features().push_back(PointFeature(cctag.x(), cctag.y(), scale, orientation));
     }
   }
 

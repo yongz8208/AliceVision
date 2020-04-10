@@ -22,8 +22,7 @@ public:
     mvsUtils::MultiViewParams* mp;
     RcTc* prt;
     PlaneSweepingCuda& cps;
-    bool visualizeDepthMaps;
-    bool visualizePartialDepthMaps;
+    bool exportIntermediateResults;
     bool doSmooth;
     // int   s_wsh;
     // float s_gammaC;
@@ -47,7 +46,6 @@ public:
     bool saveDepthsToSweepToTxtForVis;
     int modalsMapDistLimit;
     int minNumOfConsistentCams;
-    int minObjectThickness;
     float maxTcRcPixSizeInVoxRatio;
     int nSGGCIters;
     bool doSGMoptimizeVolume;
@@ -61,7 +59,7 @@ public:
     ~SemiGlobalMatchingParams(void);
 
     DepthSimMap* getDepthSimMapFromBestIdVal(int w, int h, StaticVector<IdValue>* volumeBestIdVal, int scale,
-                                                int step, int rc, int zborder, StaticVector<float>* planesDepths);
+                                                int step, int rc, int zborder, const StaticVector<float>& planesDepths);
 
     std::string getREFINE_photo_depthMapFileName(IndexT viewId, int scale, int step);
     std::string getREFINE_photo_simMapFileName(IndexT viewId, int scale, int step);

@@ -17,6 +17,8 @@
 
 #include <algorithm>
 #include <string>
+#include <regex>
+
 
 // These constants define the current software version.
 // They must be updated when the command line is changed.
@@ -40,6 +42,7 @@ int main(int argc, char **argv)
   // user optional parameters
 
   std::string describerTypesName = feature::EImageDescriberType_enumToString(feature::EImageDescriberType::SIFT);
+  std::vector<std::string> imageWhiteList;
   bool flagViews = true;
   bool flagIntrinsics = true;
   bool flagExtrinsics = true;
@@ -59,6 +62,8 @@ int main(int argc, char **argv)
   optionalParams.add_options()
     ("describerTypes,d", po::value<std::string>(&describerTypesName)->default_value(describerTypesName),
       feature::EImageDescriberType_informations().c_str())
+    ("imageWhiteList", po::value<std::vector<std::string>>(&imageWhiteList)->multitoken()->default_value(imageWhiteList),
+      "image white list containing uid(s), image filenames or regex(es) on the image file path (supported regex: '#' matches a single digit, '@' one or more digits, '?' one character and '*' zero or more)")
     ("views", po::value<bool>(&flagViews)->default_value(flagViews),
       "Export views.")
     ("intrinsics", po::value<bool>(&flagIntrinsics)->default_value(flagIntrinsics),
@@ -123,7 +128,7 @@ int main(int argc, char **argv)
   int flags = (flagViews   ? sfmDataIO::VIEWS        : 0)
        | (flagIntrinsics   ? sfmDataIO::INTRINSICS   : 0)
        | (flagExtrinsics   ? sfmDataIO::EXTRINSICS   : 0)
-       | (flagObservations ? sfmDataIO::OBSERVATIONS : 0)
+       | (flagObservations ? sfmDataIO::OBSERVATIONS_WITH_FEATURES : 0)
        | (flagStructure    ? sfmDataIO::STRUCTURE    : 0);
 
   flags = (flags) ? flags : sfmDataIO::ALL;
@@ -136,6 +141,73 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
+  // image white list filter
+  if(!imageWhiteList.empty())
+  {
+    std::vector<std::regex> imageWhiteRegexList;
+    imageWhiteRegexList.reserve(imageWhiteList.size());
+    for (const std::string& exp : imageWhiteList)
+    {
+      std::string filterToRegex = exp;
+      filterToRegex = std::regex_replace(filterToRegex, std::regex("\\*"), std::string("(.*)"));
+      filterToRegex = std::regex_replace(filterToRegex, std::regex("\\?"), std::string("(.)"));
+      filterToRegex = std::regex_replace(filterToRegex, std::regex("\\@"), std::string("[0-9]+")); // one @ correspond to one or more digits
+      filterToRegex = std::regex_replace(filterToRegex, std::regex("\\#"), std::string("[0-9]"));  // each # in pattern correspond to a digit
+      imageWhiteRegexList.emplace_back(filterToRegex);
+    }
+    
+    std::vector<IndexT> viewsToRemove;
+    std::vector<IndexT> posesToRemove;
+    std::vector<IndexT> landmarksToRemove;
+
+    for(const auto& viewPair : sfmData.getViews())
+    {
+      const sfmData::View& view = *(viewPair.second);
+      bool toRemove = true;
+
+      for(std::size_t i = 0; i < imageWhiteList.size(); ++i)
+      {
+        // Compare to filename, stem (filename without extension), view UID or regex on the full path
+        if (imageWhiteList[i] == fs::path(view.getImagePath()).filename() ||
+            imageWhiteList[i] == fs::path(view.getImagePath()).stem() ||
+            imageWhiteList[i] == std::to_string(view.getViewId()) ||
+            std::regex_match(view.getImagePath(), imageWhiteRegexList[i])
+            )
+        {
+          toRemove = false;
+        }
+      }
+
+      if(toRemove)
+      {
+        viewsToRemove.push_back(view.getViewId());
+        if(view.isPoseIndependant())
+          posesToRemove.push_back(view.getPoseId());
+      }
+    }
+
+    for(auto& landmarkPair : sfmData.getLandmarks())
+    {
+      sfmData::Landmark& landmark = landmarkPair.second;
+      for(const IndexT viewId : viewsToRemove)
+      {
+        if(landmark.observations.find(viewId) != landmark.observations.end())
+          landmark.observations.erase(viewId);
+      }
+      if(landmark.observations.empty())
+        landmarksToRemove.push_back(landmarkPair.first);
+    }
+
+    for(const IndexT viewId : viewsToRemove)
+      sfmData.getViews().erase(viewId);
+
+    for(const IndexT poseId : posesToRemove)
+      sfmData.erasePose(poseId);
+
+    for(const IndexT landmarkId : landmarksToRemove)
+      sfmData.getLandmarks().erase(landmarkId);
+  }
+
   // landmarks describer types filter
   {
     std::vector<feature::EImageDescriberType> imageDescriberTypes = feature::EImageDescriberType_stringToEnums(describerTypesName);
@@ -146,7 +218,7 @@ int main(int argc, char **argv)
       if(std::find(imageDescriberTypes.begin(), imageDescriberTypes.end(), landmarkPair.second.descType) == imageDescriberTypes.end())
         toRemove.push_back(landmarkPair.first);
     }
-    for(IndexT landmarkId : toRemove)
+    for(const IndexT landmarkId : toRemove)
       sfmData.getLandmarks().erase(landmarkId);
   }
   // export the SfMData scene in the expected format

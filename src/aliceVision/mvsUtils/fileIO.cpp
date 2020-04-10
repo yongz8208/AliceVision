@@ -8,7 +8,8 @@
 #include <aliceVision/system/Logger.hpp>
 #include <aliceVision/mvsUtils/common.hpp>
 #include <aliceVision/mvsUtils/MultiViewParams.hpp>
-#include <aliceVision/imageIO/image.hpp>
+#include <aliceVision/mvsData/imageAlgo.hpp>
+#include <aliceVision/mvsData/Image.hpp>
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
@@ -217,19 +218,26 @@ std::string getFileNameFromViewId(const MultiViewParams* mp, int viewId, EFileTy
       case EFileType::depthMap:
       {
           if(scale == 0)
-              folder = mp->getDepthMapFilterFolder();
+              folder = mp->getDepthMapsFilterFolder();
           else
-              folder = mp->getDepthMapFolder();
+              folder = mp->getDepthMapsFolder();
           suffix = "_depthMap";
+          ext = "exr";
+          break;
+      }
+      case EFileType::normalMap:
+      {
+          folder = mp->getDepthMapsFilterFolder();
+          suffix = "_normalMap";
           ext = "exr";
           break;
       }
       case EFileType::simMap:
       {
           if(scale == 0)
-              folder = mp->getDepthMapFilterFolder();
+              folder = mp->getDepthMapsFilterFolder();
           else
-              folder = mp->getDepthMapFolder();
+              folder = mp->getDepthMapsFolder();
           suffix = "_simMap";
           ext = "exr";
           break;
@@ -246,13 +254,6 @@ std::string getFileNameFromViewId(const MultiViewParams* mp, int viewId, EFileTy
           ext = "tmp";
           break;
       }
-      case EFileType::depthMapInfo:
-      {
-          folder = mp->getDepthMapFolder();
-          suffix = "_depthMapInfo";
-          ext = "tmp";
-          break;
-      }
       case EFileType::camMap:
       {
           suffix = "_camMap";
@@ -261,7 +262,7 @@ std::string getFileNameFromViewId(const MultiViewParams* mp, int viewId, EFileTy
       }
       case EFileType::nmodMap:
       {
-          folder = mp->getDepthMapFilterFolder();
+          folder = mp->getDepthMapsFilterFolder();
           suffix = "_nmodMap";
           ext = "png";
           break;
@@ -322,87 +323,63 @@ Matrix3x4 load3x4MatrixFromFile(FILE* fi)
     return m;
 }
 
-void memcpyRGBImageFromFileToArr(int camId, Color* imgArr, const std::string& fileNameOrigStr, const MultiViewParams* mp, int bandType)
+void loadImage(const std::string& path, const MultiViewParams* mp, int camId, Image& img, imageIO::EImageColorSpace colorspace, ImagesCache::ECorrectEV correctEV)
 {
-    int origWidth, origHeight;
-    std::vector<Color> cimg;
-    imageIO::readImage(fileNameOrigStr, origWidth, origHeight, cimg);
-
     // check image size
-    if((mp->getOriginalWidth(camId) != origWidth) || (mp->getOriginalHeight(camId) != origHeight))
+    auto checkImageSize = [&path, &mp, camId, &img](){
+        if((mp->getOriginalWidth(camId) != img.width()) || (mp->getOriginalHeight(camId) != img.height()))
+        {
+            std::stringstream s;
+            s << "Bad image dimension for camera : " << camId << "\n";
+            s << "\t- image path : " << path << "\n";
+            s << "\t- expected dimension : " << mp->getOriginalWidth(camId) << "x" << mp->getOriginalHeight(camId) << "\n";
+            s << "\t- real dimension : " << img.width() << "x" << img.height() << "\n";
+            throw std::runtime_error(s.str());
+        }
+    };
+
+    if(correctEV == ImagesCache::ECorrectEV::NO_CORRECTION)
     {
-        std::stringstream s;
-        s << "Bad image dimension for camera : " << camId << "\n";
-        s << "\t- image path : " << fileNameOrigStr << "\n";
-        s << "\t- expected dimension : " << mp->getOriginalWidth(camId) << "x" << mp->getOriginalHeight(camId) << "\n";
-        s << "\t- real dimension : " << origWidth << "x" << origHeight << "\n";
-        throw std::runtime_error(s.str());
+        imageIO::readImage(path, img, colorspace);
+        checkImageSize();
+    }
+    // if exposure correction, apply it in linear colorspace and then convert colorspace
+    else
+    {
+        imageIO::readImage(path, img, imageIO::EImageColorSpace::LINEAR);
+        checkImageSize();
+
+        oiio::ParamValueList metadata;
+        imageIO::readImageMetadata(path, metadata);
+
+        float exposureCompensation = metadata.get_float("AliceVision:EVComp", -1);
+
+        if(exposureCompensation == -1)
+        {
+            exposureCompensation = 1.0f;
+            ALICEVISION_LOG_INFO("Cannot compensate exposure. PrepareDenseScene needs to be update");
+        }
+        else
+        {
+            ALICEVISION_LOG_INFO("  exposure compensation for image " << camId + 1 << ": " << exposureCompensation);
+
+            for(int pix = 0; pix < img.size(); ++pix)
+                img[pix] = img[pix] * exposureCompensation;
+
+            imageAlgo::colorconvert(img, imageIO::EImageColorSpace::LINEAR, colorspace);
+        }
     }
 
     // scale choosed by the user and apply during the process
     const int processScale = mp->getProcessDownscale();
-    const int width = mp->getWidth(camId);
-    const int height = mp->getHeight(camId);
 
     if(processScale > 1)
     {
         ALICEVISION_LOG_DEBUG("Downscale (x" << processScale << ") image: " << mp->getViewId(camId) << ".");
-        std::vector<Color> bmpr;
-        imageIO::resizeImage(origWidth, origHeight, processScale, cimg, bmpr);
-        cimg = bmpr;
+        Image bmpr;
+        imageAlgo::resizeImage(processScale, img, bmpr);
+        img.swap(bmpr);
     }
-
-    if(bandType == 1)
-    {
-
-        // IplImage* cimg1=cvCreateImage(cvSize(cimg->width,cimg->height),IPL_DEPTH_8U,3);
-        // cvSmooth(cimg1,cimg,CV_BILATERAL,11,0,10.0,5.0);
-        // cvReleaseImage(&cimg);
-        // cimg=cimg1;
-        std::vector<Color> smooth;
-        imageIO::convolveImage(width, height, cimg, smooth, "gaussian", 11.0f, 11.0f);
-        cimg = smooth;
-    }
-
-    if(bandType == 2)
-    {
-        std::vector<Color> bmps;
-        imageIO::convolveImage(width, height, cimg, bmps, "gaussian", 11.0f, 11.0f);
-
-        for(int y = 0; y < height; y++)
-        {
-            for(int x = 0; x < width; x++)
-            {
-                const std::size_t index = y * width + x;
-                Color& cimc = cimg.at(index);
-                cimc = cimc - bmps.at(index); //cimg(x, y) - bmps(x, y)
-            }
-        }
-    }
-
-    for(int y = 0; y < height; y++)
-    {
-        for(int x = 0; x < width; x++)
-        {
-            const Color color = cimg.at(y * width + x);
-
-            imgArr[x * height + y] = color;
-
-        }
-    }
-}
-
-bool getDepthMapInfo(int rc, const MultiViewParams* mp, float& minDepth, float& maxDepth)
-{
-    FILE* f = mv_openFile(mp, rc, EFileType::depthMapInfo, "r");
-    if(f == nullptr)
-    {
-        ALICEVISION_LOG_WARNING("Depth map info: " << rc << " does not exists.");
-        return false;
-    }
-    fscanf(f, "minDepth %f, maxDepth %f", &minDepth, &maxDepth);
-    fclose(f);
-    return true;
 }
 
 bool DeleteDirectory(const std::string& sPath)

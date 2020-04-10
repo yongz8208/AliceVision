@@ -99,7 +99,7 @@ bool ImageDescriber_SIFT_openCV::describe(const image::Image<unsigned char>& ima
       filtered_keypoints.reserve(std::min(v_keypoints.size(), _params.maxTotalKeypoints));
       rejected_keypoints.reserve(v_keypoints.size());
 
-      cv::Mat countFeatPerCell(_params.gridSize, _params.gridSize, cv::DataType<std::size_t>::type, cv::Scalar(0));
+      cv::Mat countFeatPerCell(_params.gridSize, _params.gridSize, cv::DataType<int>::type, cv::Scalar(0));
       const std::size_t keypointsPerCell = _params.maxTotalKeypoints / countFeatPerCell.total();
       const double regionWidth = image.Width() / double(countFeatPerCell.cols);
       const double regionHeight = image.Height() / double(countFeatPerCell.rows);
@@ -117,8 +117,8 @@ bool ImageDescriber_SIFT_openCV::describe(const image::Image<unsigned char>& ima
         // std::cout << "- countFeatPerCell: " << countFeatPerCell << std::endl;
         // std::cout << "- gridSize: " << _params.gridSize << std::endl;
 
-        const std::size_t count = countFeatPerCell.at<std::size_t>(cellX, cellY);
-        countFeatPerCell.at<std::size_t>(cellX, cellY) = count + 1;
+        const int count = countFeatPerCell.at<int>(cellX, cellY);
+        countFeatPerCell.at<int>(cellX, cellY) = count + 1;
         if(count < keypointsPerCell)
           filtered_keypoints.push_back(keypoint);
         else
@@ -161,7 +161,7 @@ bool ImageDescriber_SIFT_openCV::describe(const image::Image<unsigned char>& ima
   int cpt = 0;
   for(const auto& i_kp : v_keypoints)
   {
-    SIOPointFeature feat(i_kp.pt.x, i_kp.pt.y, i_kp.size, i_kp.angle);
+    PointFeature feat(i_kp.pt.x, i_kp.pt.y, i_kp.size, i_kp.angle);
     regionsCasted->Features().push_back(feat);
 
     Descriptor<unsigned char, 128> desc;

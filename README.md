@@ -1,6 +1,4 @@
-![AliceVision](https://github.com/alicevision/AliceVision/raw/develop/docs/logo/AliceVision_170.png) 
-AliceVision - Photogrammetric Computer Vision Framework
-=====================================
+# ![AliceVision - Photogrammetric Computer Vision Framework](https://github.com/alicevision/AliceVision/raw/develop/docs/logo/AliceVision_banner.png)
 
 [AliceVision](http://alicevision.github.io) is a Photogrammetric Computer Vision Framework which provides a 3D Reconstruction and Camera Tracking algorithms.
 AliceVision aims to provide strong software basis with state-of-the-art computer vision algorithms that can be tested, analyzed and reused.
@@ -85,6 +83,8 @@ You can also contact the core team privately on: [alicevision-team@googlegroups.
 
 
 ## Contributing
+
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2995/badge)](https://bestpractices.coreinfrastructure.org/projects/2995)
 
 Beyond open source interest to foster developments, open source is a way of life. The project has started as a collaborative project and aims to continue. We love to exchange ideas, improve ourselves while making improvements for other people and discover new collaboration opportunities to expand everybody’s horizon.
 Contributions are welcome. We integrate all contributions as soon as it is useful for someone, don't create troubles for others and the code quality is good enough for maintainance.

@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <aliceVision/mvsData/image.hpp>
+#include <aliceVision/mvsData/imageIO.hpp>
 #include <aliceVision/mvsData/Point2d.hpp>
 #include <aliceVision/mvsData/Point3d.hpp>
 #include <aliceVision/mvsData/StaticVector.hpp>
@@ -46,7 +46,6 @@ EUnwrapMethod EUnwrapMethod_stringToEnum(const std::string& method);
  */
 std::string EUnwrapMethod_enumToString(EUnwrapMethod method);
 
-
 /**
  * @brief Method to remap visibilities from the reconstruction onto an other mesh.
  */
@@ -58,45 +57,48 @@ enum EVisibilityRemappingMethod {
 
 ALICEVISION_BITMASK(EVisibilityRemappingMethod);
 
-std::string EVisibilityRemappingMethod_enumToString(EVisibilityRemappingMethod method);
 EVisibilityRemappingMethod EVisibilityRemappingMethod_stringToEnum(const std::string& method);
+std::string EVisibilityRemappingMethod_enumToString(EVisibilityRemappingMethod method);
+
 
 
 struct TexturingParams
 {
-    int maxNbImagesForFusion = 3; //< max number of images to combine to create the final texture
-    double bestScoreThreshold = 0.0; //< 0.0 to disable filtering based on threshold to relative best score
+    unsigned int textureSide = 8192;
+    unsigned int downscale = 1;
+    bool useUDIM = true;
+    bool fillHoles = false;
+    unsigned int padding = 5;
+
+    // Multi-band blending
+    unsigned int nbBand = 4;
+    unsigned int multiBandDownscale = 4;
+    std::vector<int> multiBandNbContrib = {1, 5, 10, 0}; // number of contributions per frequency band for the multi-band blending
+
+    bool useScore = true;
+    double bestScoreThreshold = 0.1; //< 0.0 to disable filtering based on threshold to relative best score
     double angleHardThreshold = 90.0; //< 0.0 to disable angle hard threshold filtering
+
+    imageIO::EImageColorSpace processColorspace = imageIO::EImageColorSpace::SRGB; // colorspace for the texturing internal computation
+    mvsUtils::ImagesCache::ECorrectEV correctEV{mvsUtils::ImagesCache::ECorrectEV::NO_CORRECTION};
+
     bool forceVisibleByAllVertices = false; //< triangle visibility is based on the union of vertices visiblity
     EVisibilityRemappingMethod visibilityRemappingMethod = EVisibilityRemappingMethod::PullPush;
 
-    unsigned int textureSide = 8192;
-    unsigned int padding = 15;
-    unsigned int downscale = 2;
-    bool fillHoles = false;
+    float subdivisionTargetRatio = 0.8;
 };
 
 struct Texturing
 {
     TexturingParams texParams;
-
-    int nmtls = 0;
-    StaticVector<int> trisMtlIds;
-    StaticVector<Point2d> uvCoords;
-    StaticVector<Voxel> trisUvIds;
-    StaticVector<Point3d> normals;
-    StaticVector<Voxel> trisNormalsIds;
-    PointsVisibility* pointsVisibilities = nullptr;
-    Mesh* me = nullptr;
+    Mesh* mesh = nullptr;
 
     /// texture atlas to 3D triangle ids
     std::vector<std::vector<int>> _atlases;
 
     ~Texturing()
     {
-        if(pointsVisibilities != nullptr)
-            deleteArrayOfArrays<int>(&pointsVisibilities);
-        delete me;
+        delete mesh;
     }
 
 public:
@@ -105,15 +107,16 @@ public:
     void clear();
 
     /// Load a mesh from a .obj file and initialize internal structures
-    void loadFromOBJ(const std::string& filename, bool flipNormals=false);
+    void loadOBJWithAtlas(const std::string& filename, bool flipNormals=false);
 
     /**
-     * @brief Load a mesh from a dense reconstruction.
+     * @brief Remap visibilities
      *
-     * @param meshFilepath the path to the .bin mesh file
-     * @param visibilitiesFilepath the path to the .bin points visibilities file
+     * @param[in] remappingMethod the remapping method
+     * @param[in] refMesh the reference mesh
+     * @param[in] refPointsVisibilities the reference visibilities
      */
-    void loadFromMeshing(const std::string& meshFilepath, const std::string& visibilitiesFilepath);
+    void remapVisibilities(EVisibilityRemappingMethod remappingMethod, const Mesh& refMesh);
 
     /**
      * @brief Replace inner mesh with the mesh loaded from 'otherMeshPath'
@@ -125,7 +128,7 @@ public:
     void replaceMesh(const std::string& otherMeshPath, bool flipNormals=false);
 
     /// Returns whether UV coordinates are available
-    inline bool hasUVs() const { return !uvCoords.empty(); }
+    inline bool hasUVs() const { return !mesh->uvCoords.empty(); }
 
     /**
      * @brief Unwrap mesh with the given 'method'.
@@ -135,25 +138,60 @@ public:
     void unwrap(mvsUtils::MultiViewParams& mp, EUnwrapMethod method);
 
     /**
-     * @brief Generate automatic texture atlasing and UV coordinates based on points visibilities
+     * @brief Generate automatic texture atlasing and UV coordinates based on points visibilities with the "Basic" method.
      *
      * Requires internal mesh 'me' to be initialized.
      *
      * @param mp
      */
-    void generateUVs(mvsUtils::MultiViewParams &mp);
+    void generateUVsBasicMethod(mvsUtils::MultiViewParams &mp);
+
+    /**
+     * @brief Update texture atlases, useful when the internal mesh has been sudivise
+     *
+     * Requires internal mesh to be initialized
+     */
+    void updateAtlases();
+
+    // Create buffer for the set of output textures
+    struct AccuImage
+    {
+        Image img;
+        std::vector<float> imgCount;
+
+        void resize(int width, int height)
+        {
+            img.resize(width, height);
+            imgCount.resize(width * height);
+        }
+    };
+    struct AccuPyramid
+    {
+        std::vector<AccuImage> pyramid;
+
+        void init(int nbLevels, int imgWidth, int imgHeight)
+        {
+            pyramid.resize(nbLevels);
+            for(auto& accuImage : pyramid)
+                accuImage.resize(imgWidth, imgHeight);
+        }
+    };
 
     /// Generate texture files for all texture atlases
     void generateTextures(const mvsUtils::MultiViewParams& mp,
-                          const bfs::path &outPath, EImageFileType textureFileType = EImageFileType::PNG);
+                          const bfs::path &outPath, imageIO::EImageFileType textureFileType = imageIO::EImageFileType::PNG);
 
-    /// Generate texture files for the given texture atlas index
-    void generateTexture(const mvsUtils::MultiViewParams& mp,
-                         size_t atlasID, mvsUtils::ImagesCache& imageCache,
-                         const bfs::path &outPath, EImageFileType textureFileType = EImageFileType::PNG);
+    /// Generate texture files for the given sub-set of texture atlases
+    void generateTexturesSubSet(const mvsUtils::MultiViewParams& mp,
+                         const std::vector<size_t>& atlasIDs, mvsUtils::ImagesCache& imageCache,
+                         const bfs::path &outPath, imageIO::EImageFileType textureFileType = imageIO::EImageFileType::PNG);
+
+    ///Fill holes and write texture files for the given texture atlas
+    void writeTexture(AccuImage& atlasTexture, const std::size_t atlasID, const bfs::path& outPath,
+                      imageIO::EImageFileType textureFileType, const int level);
 
     /// Save textured mesh as an OBJ + MTL file
-    void saveAsOBJ(const bfs::path& dir, const std::string& basename, EImageFileType textureFileType = EImageFileType::PNG);
+    void saveAsOBJ(const bfs::path& dir, const std::string& basename, imageIO::EImageFileType textureFileType = imageIO::EImageFileType::PNG);
 };
 
 } // namespace mesh

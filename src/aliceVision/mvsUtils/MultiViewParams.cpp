@@ -10,9 +10,10 @@
 #include <aliceVision/mvsData/geometry.hpp>
 #include <aliceVision/mvsData/Matrix3x4.hpp>
 #include <aliceVision/mvsData/Pixel.hpp>
+#include <aliceVision/mvsData/imageIO.hpp>
 #include <aliceVision/mvsUtils/fileIO.hpp>
 #include <aliceVision/mvsUtils/common.hpp>
-#include <aliceVision/imageIO/image.hpp>
+#include <aliceVision/mvsData/imageIO.hpp>
 #include <aliceVision/numeric/numeric.hpp>
 #include <aliceVision/multiview/projection.hpp>
 
@@ -34,15 +35,15 @@ namespace fs = boost::filesystem;
 
 MultiViewParams::MultiViewParams(const sfmData::SfMData& sfmData,
                                  const std::string& imagesFolder,
-                                 const std::string& depthMapFolder,
-                                 const std::string& depthMapFilterFolder,
+                                 const std::string& depthMapsFolder,
+                                 const std::string& depthMapsFilterFolder,
                                  bool readFromDepthMaps,
                                  int downscale,
                                  StaticVector<CameraMatrices>* cameras)
     : _sfmData(sfmData)
     , _imagesFolder(imagesFolder + "/")
-    , _depthMapFolder(depthMapFolder + "/")
-    , _depthMapFilterFolder(depthMapFilterFolder + "/")
+    , _depthMapsFolder(depthMapsFolder + "/")
+    , _depthMapsFilterFolder(depthMapsFilterFolder + "/")
     , _processDownscale(downscale)
 {
     verbose = userParams.get<bool>("global.verbose", true);
@@ -72,7 +73,8 @@ MultiViewParams::MultiViewParams(const sfmData::SfMData& sfmData,
             const fs::recursive_directory_iterator end;
             const auto findIt = std::find_if(fs::recursive_directory_iterator(_imagesFolder), end,
                                      [&view](const fs::directory_entry& e) {
-                                        return e.path().stem() == std::to_string(view.getViewId());
+                                        return (e.path().stem() == std::to_string(view.getViewId()) &&
+                                        (imageIO::isSupportedUndistortFormat(e.path().extension().string())));
                                      });
 
             if(findIt == end)
@@ -86,9 +88,6 @@ MultiViewParams::MultiViewParams(const sfmData::SfMData& sfmData,
           _imageIdsPerViewId[view.getViewId()] = i;
           ++i;
         }
-
-        if(getNbCameras() <= 0)
-            throw std::runtime_error("No defined camera found.");
 
         ALICEVISION_LOG_INFO("Found " << dimensions.size() << " image dimension(s): ");
         for(const auto& dim : dimensions)
@@ -512,19 +511,35 @@ double MultiViewParams::getCamsMinPixelSize(const Point3d& x0, StaticVector<int>
     return minPixSize;
 }
 
-bool MultiViewParams::isPixelInImage(const Pixel& pix, int d, int camId) const
+bool MultiViewParams::isPixelInSourceImage(const Pixel& pixRC, int camId, int margin) const
 {
-    return ((pix.x >= d) && (pix.x < getWidth(camId) - d) && (pix.y >= d) && (pix.y < getHeight(camId) - d));
+    const IndexT viewId = getViewId(camId);
+    const sfmData::View& view = *(_sfmData.getViews().at(viewId));
+    const camera::IntrinsicBase* intrinsicPtr = _sfmData.getIntrinsicPtr(view.getIntrinsicId());
+
+    const double s = getDownscaleFactor(camId);
+    Vec2 pix_disto = intrinsicPtr->get_d_pixel({pixRC.x * s, pixRC.y * s}) / s;
+    return isPixelInImage(Pixel(pix_disto.x(), pix_disto.y()), camId, margin);
+}
+
+bool MultiViewParams::isPixelInImage(const Pixel& pix, int camId, int margin) const
+{
+    return ((pix.x >= margin) && (pix.x < getWidth(camId) - margin) &&
+            (pix.y >= margin) && (pix.y < getHeight(camId) - margin));
 }
 bool MultiViewParams::isPixelInImage(const Pixel& pix, int camId) const
 {
-    return ((pix.x >= g_border) && (pix.x < getWidth(camId) - g_border) &&
-            (pix.y >= g_border) && (pix.y < getHeight(camId) - g_border));
+    return isPixelInImage(pix, camId, g_border);
 }
 
 bool MultiViewParams::isPixelInImage(const Point2d& pix, int camId) const
 {
     return isPixelInImage(Pixel(pix), camId);
+}
+
+bool MultiViewParams::isPixelInImage(const Point2d& pix, int camId, int margin) const
+{
+    return isPixelInImage(Pixel(pix), camId, margin);
 }
 
 void MultiViewParams::decomposeProjectionMatrix(Point3d& Co, Matrix3x3& Ro, Matrix3x3& iRo, Matrix3x3& Ko,
@@ -626,8 +641,18 @@ StaticVector<int> MultiViewParams::findCamsWhichIntersectsHexahedron(const Point
     tcams.reserve(getNbCameras());
     for(int rc = 0; rc < getNbCameras(); rc++)
     {
-        float minDepth, maxDepth;
-        if(getDepthMapInfo(rc, this, minDepth, maxDepth))
+        oiio::ParamValueList metadata;
+        imageIO::readImageMetadata(getImagePath(rc), metadata);
+
+        const float minDepth = metadata.get_float("AliceVision:minDepth", -1);
+        const float maxDepth = metadata.get_float("AliceVision:maxDepth", -1);
+
+        if(minDepth == -1 && maxDepth == -1)
+        {
+            ALICEVISION_LOG_WARNING("Cannot find min / max depth metadata in image: " << getImagePath(rc) << ". Assumes that all images should be used.");
+            tcams.push_back(rc);
+        }
+        else
         {
             Point3d rchex[8];
             getCamHexahedron(CArr.at(rc), iCamArr.at(rc), getWidth(rc), getHeight(rc), minDepth, maxDepth, rchex);

@@ -63,11 +63,11 @@ enum class EFileType {
     depthMap = 35,
     simMap = 36,
     mapPtsTmp = 37,
-    depthMapInfo = 38,
     camMap = 39,
     mapPtsSimsTmp = 40,
     nmodMap = 41,
     D = 42,
+    normalMap = 43,
 };
 
 class MultiViewParams
@@ -102,14 +102,19 @@ public:
 
     MultiViewParams(const sfmData::SfMData& sfmData,
                     const std::string& imagesFolder = "",
-                    const std::string& depthMapFolder = "",
-                    const std::string& depthMapFilterFolder = "",
+                    const std::string& depthMapsFolder = "",
+                    const std::string& depthMapsFilterFolder = "",
                     bool readFromDepthMaps = false,
                     int downscale = 1,
                     StaticVector<CameraMatrices>* cameras = nullptr);
 
     ~MultiViewParams();
 
+    inline Point3d backproject(const int camIndex, const Point2d& pix, double depth) const
+    {
+        const Point3d p = CArr[camIndex] + (iCamArr[camIndex] * pix).normalize() * depth;
+        return p;
+    }
     inline const std::string& getImagePath(int index) const
     {
         return _imagesParams.at(index).path;
@@ -214,14 +219,14 @@ public:
         return p44;
     }
 
-    inline const std::string& getDepthMapFolder() const
+    inline const std::string& getDepthMapsFolder() const
     {
-        return _depthMapFolder;
+        return _depthMapsFolder;
     }
 
-    inline const std::string& getDepthMapFilterFolder() const
+    inline const std::string& getDepthMapsFilterFolder() const
     {
-        return _depthMapFilterFolder;
+        return _depthMapsFilterFolder;
     }
 
     inline const sfmData::SfMData& getInputSfMData() const
@@ -246,9 +251,11 @@ public:
     double getCamsMinPixelSize(const Point3d& x0, std::vector<unsigned short>* tcams) const;
     double getCamsMinPixelSize(const Point3d& x0, StaticVector<int>& tcams) const;
 
-    bool isPixelInImage(const Pixel& pix, int d, int camId) const;
+    bool isPixelInSourceImage(const Pixel& pixRC, int camId, int margin) const;
+    bool isPixelInImage(const Pixel& pix, int camId, int margin) const;
     bool isPixelInImage(const Pixel& pix, int camId) const;
     bool isPixelInImage(const Point2d& pix, int camId) const;
+    bool isPixelInImage(const Point2d& pix, int camId, int margin) const;
     void decomposeProjectionMatrix(Point3d& Co, Matrix3x3& Ro, Matrix3x3& iRo, Matrix3x3& Ko, Matrix3x3& iKo, Matrix3x3& iPo, const Matrix3x4& P) const;
 
     /**
@@ -299,9 +306,9 @@ private:
     /// maximum height
     int _maxImageHeight = 0;
     /// depthMapEstimate data folder
-    std::string _depthMapFolder;
+    std::string _depthMapsFolder;
     /// depthMapFilter data folder
-    std::string _depthMapFilterFolder;
+    std::string _depthMapsFilterFolder;
     /// use silhouettes
     bool _useSil = false;
     /// minimum view angle

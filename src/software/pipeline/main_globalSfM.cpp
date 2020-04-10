@@ -43,9 +43,9 @@ int main(int argc, char **argv)
 
   std::string outSfMDataFilename = "SfmData.json";
   std::string describerTypesName = feature::EImageDescriberType_enumToString(feature::EImageDescriberType::SIFT);
-  int rotationAveragingMethod = static_cast<int>(sfm::ROTATION_AVERAGING_L2);
-  int translationAveragingMethod = static_cast<int>(sfm::TRANSLATION_AVERAGING_SOFTL1);
-  bool refineIntrinsics = true;
+  sfm::ERotationAveragingMethod rotationAveragingMethod = sfm::ROTATION_AVERAGING_L2;
+  sfm::ETranslationAveragingMethod translationAveragingMethod = sfm::TRANSLATION_AVERAGING_SOFTL1;
+  bool lockAllIntrinsics = false;
 
   po::options_description allParams("Implementation of the paper\n"
     "\"Global Fusion of Relative Motions for "
@@ -70,14 +70,15 @@ int main(int argc, char **argv)
       "Filename of the output SfMData file.")
     ("describerTypes,d", po::value<std::string>(&describerTypesName)->default_value(describerTypesName),
       feature::EImageDescriberType_informations().c_str())
-    ("rotationAveraging", po::value<int>(&rotationAveragingMethod)->default_value(rotationAveragingMethod),
+    ("rotationAveraging", po::value<sfm::ERotationAveragingMethod>(&rotationAveragingMethod)->default_value(rotationAveragingMethod),
       "* 1: L1 minimization\n"
       "* 2: L2 minimization")
-    ("translationAveraging", po::value<int>(&translationAveragingMethod)->default_value(translationAveragingMethod),
+    ("translationAveraging", po::value<sfm::ETranslationAveragingMethod>(&translationAveragingMethod)->default_value(translationAveragingMethod),
       "* 1: L1 minimization\n"
-      "* 2: L2 minimization of sum of squared Chordal distances")
-    ("refineIntrinsics", po::value<bool>(&refineIntrinsics)->default_value(refineIntrinsics),
-      "Refine intrinsic parameters.");
+      "* 2: L2 minimization of sum of squared Chordal distances\n"
+      "* 3: L1 soft minimization")
+    ("lockAllIntrinsics", po::value<bool>(&lockAllIntrinsics)->default_value(lockAllIntrinsics),
+      "Force lock of all camera intrinsic parameters, so they will not be refined during Bundle Adjustment.");
 
   po::options_description logParams("Log parameters");
   logParams.add_options()
@@ -192,7 +193,7 @@ int main(int argc, char **argv)
   sfmEngine.SetMatchesProvider(&pairwiseMatches);
 
   // configure reconstruction parameters
-  sfmEngine.setFixedIntrinsics(!refineIntrinsics);
+  sfmEngine.setLockAllIntrinsics(lockAllIntrinsics); // TODO: rename param
 
   // configure motion averaging method
   sfmEngine.SetRotationAveragingMethod(sfm::ERotationAveragingMethod(rotationAveragingMethod));
@@ -202,17 +203,12 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
 
   // get the color for the 3D points
-  if(!sfmEngine.colorize())
-    ALICEVISION_LOG_ERROR("SfM Colorization failed.");
+  sfmEngine.colorize();
 
   // set featuresFolders and matchesFolders relative paths
   {
-    for(const std::string& featuresFolder : featuresFolders)
-       sfmEngine.getSfMData().addFeaturesFolder(fs::relative(fs::path(featuresFolder), outDirectory).string());
-
-    for(const std::string& matchesFolder : matchesFolders)
-       sfmEngine.getSfMData().addMatchesFolder(fs::relative(fs::path(matchesFolder), outDirectory).string());
-
+    sfmEngine.getSfMData().addFeaturesFolders(featuresFolders);
+    sfmEngine.getSfMData().addMatchesFolders(matchesFolders);
     sfmEngine.getSfMData().setAbsolutePath(outDirectory);
   }
 

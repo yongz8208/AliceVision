@@ -14,7 +14,7 @@ namespace mesh {
 
 using namespace std;
 
-UVAtlas::UVAtlas(const Mesh& mesh, mvsUtils::MultiViewParams& mp, StaticVector<StaticVector<int>*>* ptsCams,
+UVAtlas::UVAtlas(const Mesh& mesh, mvsUtils::MultiViewParams& mp,
                                  unsigned int textureSide, unsigned int gutterSize)
     : _textureSide(textureSide)
     , _gutterSize(gutterSize)
@@ -23,7 +23,7 @@ UVAtlas::UVAtlas(const Mesh& mesh, mvsUtils::MultiViewParams& mp, StaticVector<S
     vector<Chart> charts;
 
     // create texture charts
-    createCharts(charts, mp, ptsCams);
+    createCharts(charts, mp);
 
     // pack texture charts
     packCharts(charts, mp);
@@ -35,43 +35,57 @@ UVAtlas::UVAtlas(const Mesh& mesh, mvsUtils::MultiViewParams& mp, StaticVector<S
     createTextureAtlases(charts, mp);
 }
 
-void UVAtlas::createCharts(vector<Chart>& charts, mvsUtils::MultiViewParams& mp, StaticVector<StaticVector<int>*>* ptsCams)
+void UVAtlas::createCharts(vector<Chart>& charts, mvsUtils::MultiViewParams& mp)
 {
     ALICEVISION_LOG_INFO("Creating texture charts.");
 
     // compute per cam triangle visibility
-    StaticVector<StaticVector<int>*>* trisCams = _mesh.computeTrisCamsFromPtsCams(ptsCams);
+    StaticVector<StaticVector<int>> trisCams;
+    _mesh.computeTrisCamsFromPtsCams(trisCams);
 
     // create one chart per triangle
-    _triangleCameraIDs.resize(_mesh.tris->size());
-    charts.resize(_mesh.tris->size());
+    _triangleCameraIDs.resize(_mesh.tris.size());
+    charts.resize(_mesh.tris.size());
     #pragma omp parallel for
-    for(int i = 0; i < trisCams->size(); ++i)
+    for(int i = 0; i < trisCams.size(); ++i)
     {
-        Chart& chart = charts[i];
-        std::vector<int>& tCamIds = _triangleCameraIDs[i];
+        std::vector<std::pair<float, int>> commonCameraIDs;
 
         // project triangle in all cams
-        auto cameras = (*trisCams)[i];
-        for(int c = 0; c < cameras->size(); ++c)
+        auto cameras = trisCams[i];
+        for(int c = 0; c < cameras.size(); ++c)
         {
-            int cameraID = (*cameras)[c];
+            int cameraID = cameras[c];
             // project triangle
-            Mesh::triangle_proj tp = _mesh.getTriangleProjection(i, &mp, cameraID, mp.getWidth(cameraID), mp.getHeight(cameraID));
-            if(!mp.isPixelInImage(Pixel(tp.tp2ds[0]), 10, cameraID)
-                    || !mp.isPixelInImage(Pixel(tp.tp2ds[1]), 10, cameraID)
-                    || !mp.isPixelInImage(Pixel(tp.tp2ds[2]), 10, cameraID))
+            Mesh::triangle_proj tProj = _mesh.getTriangleProjection(i, mp, cameraID, mp.getWidth(cameraID), mp.getHeight(cameraID));
+
+            if(!_mesh.isTriangleProjectionInImage(mp, tProj, cameraID, 10))
                 continue;
-            // store this camera ID
-            chart.commonCameraIDs.emplace_back(cameraID);
-            tCamIds.emplace_back(cameraID);
+
+            const float area = _mesh.computeTriangleProjectionArea(tProj);
+            commonCameraIDs.emplace_back(area, cameraID);
         }
-        // sort camera IDs
+        // sort cameras by score
+        std::sort(commonCameraIDs.begin(), commonCameraIDs.end(), std::greater<std::pair<int, int>>());
+
+        // Declare into the charts only the best ones
+        Chart& chart = charts[i];
+        for (int c = 0; c < commonCameraIDs.size(); ++c)
+        {
+          // don't use visibility with less than half the resolution of the best one
+          if (c > 0 && commonCameraIDs[c].first < 0.5 * commonCameraIDs[0].first)
+            break;
+          chart.commonCameraIDs.emplace_back(commonCameraIDs[c].second);
+        }
+        // sort cameras by IDs
         std::sort(chart.commonCameraIDs.begin(), chart.commonCameraIDs.end());
+
+        // save of copy of the triangle visibility
+        _triangleCameraIDs[i] = chart.commonCameraIDs;
+
         // store triangle ID
-        chart.triangleIDs.emplace_back(i);
+        chart.triangleIDs.emplace_back(i); // one triangle per chart in a first place
     }
-    deleteArrayOfArrays<int>(&trisCams);
 }
 
 void UVAtlas::packCharts(vector<Chart>& charts, mvsUtils::MultiViewParams& mp)
@@ -92,11 +106,11 @@ void UVAtlas::packCharts(vector<Chart>& charts, mvsUtils::MultiViewParams& mp)
 
     // list mesh edges (with duplicates)
     vector<Edge> alledges;
-    for(int i = 0; i < _mesh.tris->size(); ++i)
+    for(int i = 0; i < _mesh.tris.size(); ++i)
     {
-        int a = (*_mesh.tris)[i].v[0];
-        int b = (*_mesh.tris)[i].v[1];
-        int c = (*_mesh.tris)[i].v[2];
+        int a = _mesh.tris[i].v[0];
+        int b = _mesh.tris[i].v[1];
+        int c = _mesh.tris[i].v[2];
         Edge e1;
         e1.pointIDs = make_pair(min(a, b), max(a, b));
         e1.triangleIDs.emplace_back(i);
@@ -198,7 +212,7 @@ void UVAtlas::finalizeCharts(vector<Chart>& charts, mvsUtils::MultiViewParams& m
         
             for(auto it = chart.triangleIDs.begin(); it != chart.triangleIDs.end(); ++it)
             {
-                Mesh::triangle_proj tp = _mesh.getTriangleProjection(*it, &mp, camId, mp.getWidth(camId), mp.getHeight(camId));
+                Mesh::triangle_proj tp = _mesh.getTriangleProjection(*it, mp, camId, mp.getWidth(camId), mp.getHeight(camId));
                 sourceLU.x = min(sourceLU.x, tp.lu.x);
                 sourceLU.y = min(sourceLU.y, tp.lu.y);
                 sourceRD.x = max(sourceRD.x, tp.rd.x);
@@ -211,6 +225,14 @@ void UVAtlas::finalizeCharts(vector<Chart>& charts, mvsUtils::MultiViewParams& m
                 chart.sourceRD = sourceRD;
             }
         }
+
+        const int largerSize = std::max(chart.sourceWidth(), chart.sourceHeight());
+        if(largerSize > chartMaxSize())
+        {
+            chart.downscale = static_cast<float>(chartMaxSize()) / static_cast<float>(largerSize);
+            ALICEVISION_LOG_WARNING("Downscaling chart (by " + std::to_string(chart.downscale) + ") to fit in texture."
+                "Set higher texture size for better results.");
+        }
     }
 }
 
@@ -221,10 +243,10 @@ void UVAtlas::createTextureAtlases(vector<Chart>& charts, mvsUtils::MultiViewPar
     // sort charts by size, descending
     std::sort(charts.begin(), charts.end(), [](const Chart& a, const Chart& b)
     {
-        int wa = a.width();
-        int wb = b.width();
+        int wa = a.targetWidth();
+        int wb = b.targetWidth();
         if(wa == wb)
-            return a.height() > b.height();
+            return a.targetHeight() > b.targetHeight();
         return wa > wb;
     });
 
@@ -266,6 +288,9 @@ void UVAtlas::createTextureAtlases(vector<Chart>& charts, mvsUtils::MultiViewPar
         // fill potential empty space (i != j) in backward direction
         while(j > i && insertChart(j)) { --j; }
 
+        if(atlas.empty())
+            throw std::runtime_error("Unable to add any chart to this atlas");
+
         // atlas is full or all charts have been handled
         ALICEVISION_LOG_INFO("Filled with " << atlas.size() << " charts.");
         // store this texture
@@ -300,8 +325,8 @@ UVAtlas::ChartRect* UVAtlas::ChartRect::insert(Chart& chart, size_t gutter)
     }
     else
     {
-        size_t chartWidth = chart.width() + gutter * 2;
-        size_t chartHeight = chart.height() + gutter * 2;
+        size_t chartWidth = chart.targetWidth() + gutter * 2;
+        size_t chartHeight = chart.targetHeight() + gutter * 2;
         // if there is already a chart here
         if(c) return nullptr;
         // not enough space

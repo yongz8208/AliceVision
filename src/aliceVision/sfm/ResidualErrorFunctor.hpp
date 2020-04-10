@@ -8,6 +8,7 @@
 #pragma once
 
 #include <aliceVision/camera/camera.hpp>
+#include <aliceVision/sfmData/SfMData.hpp>
 
 #include <ceres/rotation.h>
 
@@ -29,10 +30,9 @@ namespace sfm {
  */
 struct ResidualErrorFunctor_Pinhole
 {
-  ResidualErrorFunctor_Pinhole(const double* const pos_2dpoint)
+  explicit ResidualErrorFunctor_Pinhole(const sfmData::Observation& obs)
+      : _obs(obs)
   {
-    m_pos_2dpoint[0] = pos_2dpoint[0];
-    m_pos_2dpoint[1] = pos_2dpoint[1];
   }
 
   // Enum to map intrinsics parameters between aliceVision & ceres camera data parameter block.
@@ -58,8 +58,9 @@ struct ResidualErrorFunctor_Pinhole
 
     // Compute and return the error is the difference between the predicted
     //  and observed position
-    out_residuals[0] = projected_x - T(m_pos_2dpoint[0]);
-    out_residuals[1] = projected_y - T(m_pos_2dpoint[1]);
+    const T scale(_obs.scale > 0.0 ? _obs.scale : 1.0);
+    out_residuals[0] = (projected_x - T(_obs.x[0])) / scale;
+    out_residuals[1] = (projected_y - T(_obs.x[1])) / scale;
   }
 
   template <typename T>
@@ -94,7 +95,8 @@ struct ResidualErrorFunctor_Pinhole
       const T* cam_t = &subpose_Rt[3];
 
       // Rotate the point according to the camera rotation
-      ceres::AngleAxisRotatePoint(cam_R, pos_proj, pos_proj);
+      T pos_proj_tmp[3] = { pos_proj[0], pos_proj[1], pos_proj[2] };
+      ceres::AngleAxisRotatePoint(cam_R, pos_proj_tmp, pos_proj);
 
       // Apply the camera translation
       pos_proj[0] += cam_t[0];
@@ -161,7 +163,7 @@ struct ResidualErrorFunctor_Pinhole
     return true;
   }
 
-  double m_pos_2dpoint[2]; // The 2D observation
+  const sfmData::Observation& _obs; // The 2D observation
 };
 
 /**
@@ -177,10 +179,9 @@ struct ResidualErrorFunctor_Pinhole
  */
 struct ResidualErrorFunctor_PinholeRadialK1
 {
-  ResidualErrorFunctor_PinholeRadialK1(const double* const pos_2dpoint)
+  explicit ResidualErrorFunctor_PinholeRadialK1(const sfmData::Observation& obs)
+      : _obs(obs)
   {
-    m_pos_2dpoint[0] = pos_2dpoint[0];
-    m_pos_2dpoint[1] = pos_2dpoint[1];
   }
 
   // Enum to map intrinsics parameters between aliceVision & ceres camera data parameter block.
@@ -215,8 +216,9 @@ struct ResidualErrorFunctor_PinholeRadialK1
 
     // Compute and return the error is the difference between the predicted
     //  and observed position
-    out_residuals[0] = projected_x - T(m_pos_2dpoint[0]);
-    out_residuals[1] = projected_y - T(m_pos_2dpoint[1]);
+    const T scale(_obs.scale > 0.0 ? _obs.scale : 1.0);
+    out_residuals[0] = (projected_x - T(_obs.x[0])) / scale;
+    out_residuals[1] = (projected_y - T(_obs.x[1])) / scale;
   }
 
   template <typename T>
@@ -315,7 +317,7 @@ struct ResidualErrorFunctor_PinholeRadialK1
     return true;
   }
 
-  double m_pos_2dpoint[2]; // The 2D observation
+  const sfmData::Observation& _obs; // The 2D observation
 };
 
 /**
@@ -331,10 +333,9 @@ struct ResidualErrorFunctor_PinholeRadialK1
  */
 struct ResidualErrorFunctor_PinholeRadialK3
 {
-  ResidualErrorFunctor_PinholeRadialK3(const double* const pos_2dpoint)
+  explicit ResidualErrorFunctor_PinholeRadialK3(const sfmData::Observation& obs)
+      : _obs(obs)
   {
-    m_pos_2dpoint[0] = pos_2dpoint[0];
-    m_pos_2dpoint[1] = pos_2dpoint[1];
   }
 
   // Enum to map intrinsics parameters between aliceVision & ceres camera data parameter block.
@@ -374,8 +375,9 @@ struct ResidualErrorFunctor_PinholeRadialK3
 
     // Compute and return the error is the difference between the predicted
     //  and observed position
-    out_residuals[0] = projected_x - T(m_pos_2dpoint[0]);
-    out_residuals[1] = projected_y - T(m_pos_2dpoint[1]);
+    const T scale(_obs.scale > 0.0 ? _obs.scale : 1.0);
+    out_residuals[0] = (projected_x - T(_obs.x[0])) / scale;
+    out_residuals[1] = (projected_y - T(_obs.x[1])) / scale;
   }
 
   template <typename T>
@@ -468,7 +470,7 @@ struct ResidualErrorFunctor_PinholeRadialK3
     return true;
   }
 
-  double m_pos_2dpoint[2]; // The 2D observation
+  const sfmData::Observation& _obs; // The 2D observation
 };
 
 /**
@@ -484,10 +486,9 @@ struct ResidualErrorFunctor_PinholeRadialK3
  */
 struct ResidualErrorFunctor_PinholeBrownT2
 {
-  ResidualErrorFunctor_PinholeBrownT2(const double* const pos_2dpoint)
+  explicit ResidualErrorFunctor_PinholeBrownT2(const sfmData::Observation& obs)
+      : _obs(obs)
   {
-    m_pos_2dpoint[0] = pos_2dpoint[0];
-    m_pos_2dpoint[1] = pos_2dpoint[1];
   }
 
   // Enum to map intrinsics parameters between aliceVision & ceres camera data parameter block.
@@ -533,8 +534,9 @@ struct ResidualErrorFunctor_PinholeBrownT2
 
     // Compute and return the error is the difference between the predicted
     //  and observed position
-    out_residuals[0] = projected_x - T(m_pos_2dpoint[0]);
-    out_residuals[1] = projected_y - T(m_pos_2dpoint[1]);
+    const T scale(_obs.scale > 0.0 ? _obs.scale : 1.0);
+    out_residuals[0] = (projected_x - T(_obs.x[0])) / scale;
+    out_residuals[1] = (projected_y - T(_obs.x[1])) / scale;
   }
 
   template <typename T>
@@ -634,7 +636,7 @@ struct ResidualErrorFunctor_PinholeBrownT2
     return true;
   }
 
-  double m_pos_2dpoint[2]; // The 2D observation
+  const sfmData::Observation& _obs; // The 2D observation
 };
 
 
@@ -651,10 +653,9 @@ struct ResidualErrorFunctor_PinholeBrownT2
  */
 struct ResidualErrorFunctor_PinholeFisheye
 {
-  ResidualErrorFunctor_PinholeFisheye(const double* const pos_2dpoint)
+  explicit ResidualErrorFunctor_PinholeFisheye(const sfmData::Observation& obs)
+      : _obs(obs)
   {
-    m_pos_2dpoint[0] = pos_2dpoint[0];
-    m_pos_2dpoint[1] = pos_2dpoint[1];
   }
 
   // Enum to map intrinsics parameters between aliceVision & ceres camera data parameter block.
@@ -701,8 +702,9 @@ struct ResidualErrorFunctor_PinholeFisheye
 
     // Compute and return the error is the difference between the predicted
     //  and observed position
-    out_residuals[0] = projected_x - T(m_pos_2dpoint[0]);
-    out_residuals[1] = projected_y - T(m_pos_2dpoint[1]);
+    const T scale(_obs.scale > 0.0 ? _obs.scale : 1.0);
+    out_residuals[0] = (projected_x - T(_obs.x[0])) / scale;
+    out_residuals[1] = (projected_y - T(_obs.x[1])) / scale;
 
   }
 
@@ -802,7 +804,7 @@ struct ResidualErrorFunctor_PinholeFisheye
     return true;
   }
 
-  double m_pos_2dpoint[2]; // The 2D observation
+  const sfmData::Observation& _obs; // The 2D observation
 };
 
 /**
@@ -818,10 +820,9 @@ struct ResidualErrorFunctor_PinholeFisheye
  */
 struct ResidualErrorFunctor_PinholeFisheye1
 {
-  ResidualErrorFunctor_PinholeFisheye1(const double* const pos_2dpoint)
+  explicit ResidualErrorFunctor_PinholeFisheye1(const sfmData::Observation& obs)
+      : _obs(obs)
   {
-    m_pos_2dpoint[0] = pos_2dpoint[0];
-    m_pos_2dpoint[1] = pos_2dpoint[1];
   }
 
   // Enum to map intrinsics parameters between aliceVision & ceres camera data parameter block.
@@ -856,8 +857,9 @@ struct ResidualErrorFunctor_PinholeFisheye1
 
     // Compute and return the error is the difference between the predicted
     //  and observed position
-    out_residuals[0] = projected_x - T(m_pos_2dpoint[0]);
-    out_residuals[1] = projected_y - T(m_pos_2dpoint[1]);
+    const T scale(_obs.scale > 0.0 ? _obs.scale : 1.0);
+    out_residuals[0] = (projected_x - T(_obs.x[0])) / scale;
+    out_residuals[1] = (projected_y - T(_obs.x[1])) / scale;
   }
 
   template <typename T>
@@ -956,7 +958,7 @@ struct ResidualErrorFunctor_PinholeFisheye1
     return true;
   }
 
-  double m_pos_2dpoint[2]; // The 2D observation
+  const sfmData::Observation& _obs; // The 2D observation
 };
 
 

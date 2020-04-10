@@ -14,6 +14,8 @@
 #include <aliceVision/system/Logger.hpp>
 #include <aliceVision/system/Timer.hpp>
 
+#include <aliceVision/depthMap/RefineRc.hpp>
+
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 
@@ -32,7 +34,7 @@ int main(int argc, char* argv[])
 
     std::string verboseLevel = system::EVerboseLevel_enumToString(system::Logger::getDefaultVerboseLevel());
     std::string sfmDataFilename;
-    std::string depthMapFolder;
+    std::string depthMapsFolder;
     std::string outputFolder;
 
     // program range
@@ -43,11 +45,12 @@ int main(int argc, char* argv[])
     float minViewAngle = 2.0f;
     float maxViewAngle = 70.0f;
 
-    int minNumOfConsistensCams = 3;
-    int minNumOfConsistensCamsWithLowSimilarity = 4;
+    int minNumOfConsistentCams = 3;
+    int minNumOfConsistentCamsWithLowSimilarity = 4;
     int pixSizeBall = 0;
     int pixSizeBallWithLowSimilarity = 0;
     int nNearestCams = 10;
+    bool computeNormalMaps = false;
 
     po::options_description allParams("AliceVision depthMapFiltering\n"
                                       "Filter depth map to remove values that are not consistent with other depth maps");
@@ -56,7 +59,7 @@ int main(int argc, char* argv[])
     requiredParams.add_options()
         ("input,i", po::value<std::string>(&sfmDataFilename)->required(),
             "SfMData file.")
-        ("depthMapFolder", po::value<std::string>(&depthMapFolder)->required(),
+        ("depthMapsFolder", po::value<std::string>(&depthMapsFolder)->required(),
             "Input depth map folder.")
         ("output,o", po::value<std::string>(&outputFolder)->required(),
             "Output folder for filtered depth maps.");
@@ -71,16 +74,18 @@ int main(int argc, char* argv[])
             "minimum angle between two views.")
         ("maxViewAngle", po::value<float>(&maxViewAngle)->default_value(maxViewAngle),
             "maximum angle between two views.")
-        ("minNumOfConsistensCams", po::value<int>(&minNumOfConsistensCams)->default_value(minNumOfConsistensCams),
+        ("minNumOfConsistentCams", po::value<int>(&minNumOfConsistentCams)->default_value(minNumOfConsistentCams),
             "Minimal number of consistent cameras to consider the pixel.")
-        ("minNumOfConsistensCamsWithLowSimilarity", po::value<int>(&minNumOfConsistensCamsWithLowSimilarity)->default_value(minNumOfConsistensCamsWithLowSimilarity),
+        ("minNumOfConsistentCamsWithLowSimilarity", po::value<int>(&minNumOfConsistentCamsWithLowSimilarity)->default_value(minNumOfConsistentCamsWithLowSimilarity),
             "Minimal number of consistent cameras to consider the pixel when the similarity is weak or ambiguous.")
         ("pixSizeBall", po::value<int>(&pixSizeBall)->default_value(pixSizeBall),
             "Filter ball size (in px).")
         ("pixSizeBallWithLowSimilarity", po::value<int>(&pixSizeBallWithLowSimilarity)->default_value(pixSizeBallWithLowSimilarity),
             "Filter ball size (in px) when the similarity is weak or ambiguous.")
         ("nNearestCams", po::value<int>(&nNearestCams)->default_value(nNearestCams),
-            "Number of nearest cameras.");
+            "Number of nearest cameras.")
+        ("computeNormalMaps", po::value<bool>(&computeNormalMaps)->default_value(computeNormalMaps),
+            "Compute normal maps per depth map");
 
     po::options_description logParams("Log parameters");
     logParams.add_options()
@@ -131,7 +136,7 @@ int main(int argc, char* argv[])
     }
 
     // initialization
-    mvsUtils::MultiViewParams mp(sfmData, "", depthMapFolder, outputFolder, "", true);
+    mvsUtils::MultiViewParams mp(sfmData, "", depthMapsFolder, outputFolder, "", true);
 
     mp.setMinViewAngle(minViewAngle);
     mp.setMaxViewAngle(maxViewAngle);
@@ -165,8 +170,11 @@ int main(int argc, char* argv[])
     {
         fuseCut::Fuser fs(&mp);
         fs.filterGroups(cams, pixSizeBall, pixSizeBallWithLowSimilarity, nNearestCams);
-        fs.filterDepthMaps(cams, minNumOfConsistensCams, minNumOfConsistensCamsWithLowSimilarity);
+        fs.filterDepthMaps(cams, minNumOfConsistentCams, minNumOfConsistentCamsWithLowSimilarity);
     }
+
+    if(computeNormalMaps)
+      depthMap::computeNormalMaps(&mp, cams);
 
     ALICEVISION_LOG_INFO("Task done in (s): " + std::to_string(timer.elapsed()));
     return EXIT_SUCCESS;

@@ -16,6 +16,22 @@ namespace aliceVision {
 namespace sfmData {
 
 /**
+ * @brief EXIF Orientation to names
+ */
+enum class EEXIFOrientation
+{
+  NONE = 1
+  , REVERSED = 2
+  , UPSIDEDOWN = 3
+  , UPSIDEDOWN_REVERSED = 4
+  , LEFT_REVERSED = 5
+  , LEFT = 6  
+  , RIGHT_REVERSED = 7
+  , RIGHT = 8
+  , UNKNOWN = -1
+};
+
+/**
  * @brief A view define an image by a string and unique indexes for
  * the view, the camera intrinsic, the pose and the subpose if the camera is part of a rig
  */
@@ -176,6 +192,28 @@ public:
   }
 
   /**
+   * 
+  */
+  float getCameraExposureSetting() const
+  {
+    const float shutter = getMetadataShutter();
+    const float fnumber = getMetadataFNumber();
+    if (shutter < 0 || fnumber < 0)
+        return -1.f;
+
+    const float iso = getMetadataISO();
+    const float isoRatio = (iso < 0.f) ? 1.0 : (iso / 100.f);
+
+    float cameraExposure = (shutter * isoRatio) / (fnumber * fnumber);
+    return cameraExposure;
+  }
+
+  float getEv() const
+  {
+    return std::log2(1.f/getCameraExposureSetting());
+  }
+
+  /**
    * @brief Return true if the given metadata name exists
    * @param[in] name The metadata name
    * @return true if the corresponding metadata value exists
@@ -301,6 +339,67 @@ public:
     if(hasDigitMetadata("focalLength"))
       return std::stod(getMetadata("focalLength"));
     return -1;
+  }
+
+  /**
+     * @brief Get the corresponding "ExposureTime" (shutter) metadata value
+     * @return the metadata value float or -1 if no corresponding value
+     */
+  float getMetadataShutter() const
+  {
+      if(hasDigitMetadata("ExposureTime"))
+          return std::stof(getMetadata("ExposureTime"));
+      return -1;
+  }
+
+  /**
+   * @brief Get the corresponding "FNumber" (relative aperture) metadata value
+   * @return the metadata value float or -1 if no corresponding value
+   */
+  float getMetadataFNumber() const
+  {
+      if(hasDigitMetadata("FNumber"))
+      {
+          return std::stof(getMetadata("FNumber"));
+      }
+      if (hasDigitMetadata("ApertureValue"))
+      {
+          const float aperture = std::stof(getMetadata("ApertureValue"));
+          // fnumber = 2^(aperture/2)
+          return std::pow(2.0f, aperture / 2.0f);
+      }
+      return -1;
+  }
+
+  /**
+     * @brief Get the corresponding "PhotographicSensitivity" (ISO) metadata value
+     * @return the metadata value int or -1 if no corresponding value
+     */
+  float getMetadataISO() const
+  {
+      if(hasDigitMetadata("Exif:PhotographicSensitivity"))
+          return std::stoi(getMetadata("Exif:PhotographicSensitivity"));
+      return -1;
+  }
+
+  /**
+   * @brief Get the corresponding "Orientation" metadata value
+   * @return the enum EEXIFOrientation
+   */
+  EEXIFOrientation getMetadataOrientation() const
+  {
+    if(hasDigitMetadata("Orientation"))
+      return  static_cast<EEXIFOrientation>(std::stoi(getMetadata("Orientation")));
+    if(hasDigitMetadata("Exif:Orientation"))
+      return  static_cast<EEXIFOrientation>(std::stoi(getMetadata("Exif:Orientation")));
+    return EEXIFOrientation::UNKNOWN;
+  }
+
+  std::string getMetadataDateTimeOriginal() const
+  {
+    if(hasMetadata("Exif:DateTimeOriginal"))
+      return getMetadata("Exif:DateTimeOriginal");
+    return "";
   }
 
   /**
