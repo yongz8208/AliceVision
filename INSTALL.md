@@ -5,7 +5,7 @@ Build instructions
 ------------------
 
 Required tools:
-* CMake >= 3.4
+* CMake >= 3.11
 * Git
 * C/C++ compiler (gcc or visual studio or clang) with C++11 support.
 
@@ -18,7 +18,7 @@ git clone https://github.com/alicevision/AliceVision.git --recursive
 ```
 
 As AliceVision use some C++11 features you must have a c++11 ready compiler:
-- Visual studio >= 2015
+- Visual studio >= 2015 (English language pack required for vcpkg)
 - GCC >= 4.7
 - Clang >= 3.3
 
@@ -93,14 +93,17 @@ vcpkg install ^
           boost-program-options boost-property-tree boost-ptr-container boost-regex boost-serialization boost-system boost-test boost-thread boost-timer ^
           lz4 ^
           openexr ^
-          openimageio[libraw] ^
           alembic ^
           geogram ^
           eigen3 ^
-          ceres[suitesparse] ^
+          opencv[eigen,ffmpeg,webp,contrib,nonFree,cuda] ^
+          openimageio[libraw,ffmpeg,freetype,opencv,gif,openjpeg,webp,tools] ^
+          ceres[suitesparse,cxsparse] ^
           cuda ^
+          tbb ^
           --triplet x64-windows
 ```
+
 3. Build AliceVision
 ```bash
 # With VCPKG_ROOT being the path to the root of vcpkg installation

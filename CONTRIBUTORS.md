@@ -11,10 +11,13 @@ Individuals
 - Clement Aymard
 - Clement Debize
 - Cyril Pichard
+- Enguerrand De Smet
 - Fabien Castan
+- Fabien Servant
 - Gregoire De Lillo
 - Havard Espeland
 - Jean Melou
+- Julien Haudegond
 - Lilian Calvet
 - Michal Polic
 - Nicolas Rondaud
@@ -38,7 +41,7 @@ Institutions
 - Quine in Oslo, Norway  
   http://www.quine.no
 - This project has received funding from the European Union’s Horizon 2020 research and innovation programme  
-  [POPART](http://www.popartproject.eu) and [LADIO](http://www.ladioproject.eu).
+  [POPART](http://www.alicevision.org/popart) and [LADIO](http://www.alicevision.org/ladio).
 
 
 CMPMVS Contributors

@@ -15,6 +15,7 @@
 #include <OpenEXR/half.h>
 
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <cstring>
 #include <stdexcept>
@@ -46,7 +47,7 @@ EImageFileType EImageFileType_stringToEnum(const std::string& imageFileType)
   if(type == "tif" || type == "tiff") return EImageFileType::TIFF;
   if(type == "exr")                   return EImageFileType::EXR;
 
-  throw std::out_of_range("Invalid image file type : " + imageFileType);
+  throw std::out_of_range("Invalid image file type: " + imageFileType);
 }
 
 std::string EImageFileType_enumToString(const EImageFileType imageFileType)
@@ -74,7 +75,7 @@ std::istream& operator>>(std::istream& in, EImageFileType& imageFileType)
   return in;
 }
 
-bool isSupported(const std::string &ext)
+std::vector<std::string> getSupportedExtensions()
 {
   static const std::string extensionList = oiio::get_string_attribute("extension_list");
   std::vector<std::string> supportedExtensions;
@@ -89,10 +90,62 @@ bool isSupported(const std::string &ext)
     for(std::string& extension: extensions)
       supportedExtensions.push_back(extension.insert(0, "."));
   }
+  return supportedExtensions;
+}
 
+bool isSupported(const std::string& ext)
+{
+  static const std::vector<std::string> supportedExtensions = getSupportedExtensions();
   const auto start = supportedExtensions.begin();
   const auto end = supportedExtensions.end();
   return (std::find(start, end, boost::to_lower_copy(ext)) != end);
+}
+
+
+std::string EStorageDataType_informations()
+{
+    return EStorageDataType_enumToString(EStorageDataType::Float) + ", " +
+        EStorageDataType_enumToString(EStorageDataType::Half) + ", " +
+        EStorageDataType_enumToString(EStorageDataType::HalfFinite) + ", " +
+        EStorageDataType_enumToString(EStorageDataType::Auto);
+}
+
+EStorageDataType EStorageDataType_stringToEnum(const std::string& dataType)
+{
+    std::string type = dataType;
+    std::transform(type.begin(), type.end(), type.begin(), ::tolower); //tolower
+
+    if (type == "float") return EStorageDataType::Float;
+    if (type == "half") return EStorageDataType::Half;
+    if (type == "halffinite") return EStorageDataType::HalfFinite;
+    if (type == "auto") return EStorageDataType::Auto;
+
+    throw std::out_of_range("Invalid EStorageDataType: " + dataType);
+}
+
+std::string EStorageDataType_enumToString(const EStorageDataType dataType)
+{
+    switch (dataType)
+    {
+    case EStorageDataType::Float:  return "float";
+    case EStorageDataType::Half:   return "half";
+    case EStorageDataType::HalfFinite:  return "halfFinite";
+    case EStorageDataType::Auto:   return "auto";
+    }
+    throw std::out_of_range("Invalid EStorageDataType enum");
+}
+
+std::ostream& operator<<(std::ostream& os, EStorageDataType dataType)
+{
+    return os << EStorageDataType_enumToString(dataType);
+}
+
+std::istream& operator>>(std::istream& in, EStorageDataType& dataType)
+{
+    std::string token;
+    in >> token;
+    dataType = EStorageDataType_stringToEnum(token);
+    return in;
 }
 
 // Warning: type conversion problems from string to param value, we may lose some metadata with string maps
@@ -274,7 +327,7 @@ void readImage(const std::string& path,
 
     // compute luminance via a weighted sum of R,G,B
     // (assuming Rec709 primaries and a linear scale)
-    const float weights[3] = {.2126, .7152, .0722};
+    const float weights[3] = {.2126f, .7152f, .0722f};
     oiio::ImageBuf grayscaleBuf;
     oiio::ImageBufAlgo::channel_sum(grayscaleBuf, inBuf, weights, convertionROI);
     inBuf.copy(grayscaleBuf);
@@ -318,6 +371,24 @@ void readImage(const std::string& path,
   }
 }
 
+bool containsHalfFloatOverflow(const oiio::ImageBuf& image)
+{
+    oiio::ImageBufAlgo::PixelStats stats;
+    oiio::ImageBufAlgo::computePixelStats(stats, image);
+
+    for(auto maxValue: stats.max)
+    {
+        if(maxValue > HALF_MAX)
+            return true;
+    }
+    for (auto minValue: stats.min)
+    {
+        if (minValue < -HALF_MAX)
+            return true;
+    }
+    return false;
+}
+
 template<typename T>
 void writeImage(const std::string& path,
                 oiio::TypeDesc typeDesc,
@@ -327,7 +398,7 @@ void writeImage(const std::string& path,
                 const oiio::ParamValueList& metadata = oiio::ParamValueList())
 {
   const fs::path bPath = fs::path(path);
-  const std::string extension = bPath.extension().string();
+  const std::string extension = boost::to_lower_copy(bPath.extension().string());
   const std::string tmpPath =  (bPath.parent_path() / bPath.stem()).string() + "." + fs::unique_path().string() + extension;
   const bool isEXR = (extension == ".exr");
   //const bool isTIF = (extension == ".tif");
@@ -362,8 +433,34 @@ void writeImage(const std::string& path,
   oiio::ImageBuf formatBuf;  // buffer for image format modification
   if(isEXR)
   {
-    formatBuf.copy(*outBuf, oiio::TypeDesc::HALF); // override format, use half instead of float
-    outBuf = &formatBuf;
+    const std::string storageDataTypeStr = imageSpec.get_string_attribute("AliceVision:storageDataType", EStorageDataType_enumToString(EStorageDataType::HalfFinite));
+    EStorageDataType storageDataType  = EStorageDataType_stringToEnum(storageDataTypeStr);
+
+    if (storageDataType == EStorageDataType::Auto)
+    {
+        if (containsHalfFloatOverflow(*outBuf))
+        {
+            storageDataType = EStorageDataType::Float;
+        }
+        else
+        {
+            storageDataType = EStorageDataType::Half;
+        }
+        ALICEVISION_LOG_DEBUG("writeImage storageDataTypeStr: " << storageDataType);
+    }
+
+    if (storageDataType == EStorageDataType::HalfFinite)
+    {
+        oiio::ImageBufAlgo::clamp(colorspaceBuf, *outBuf, -HALF_MAX, HALF_MAX);
+        outBuf = &colorspaceBuf;
+    }
+
+    if (storageDataType == EStorageDataType::Half ||
+        storageDataType == EStorageDataType::HalfFinite)
+    {
+        formatBuf.copy(*outBuf, oiio::TypeDesc::HALF); // override format, use half instead of float
+        outBuf = &formatBuf;
+    }
   }
 
   // write image

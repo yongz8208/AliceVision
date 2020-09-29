@@ -13,7 +13,6 @@
 #include <OpenImageIO/paramlist.h>
 #include <OpenImageIO/imagebuf.h>
 
-#include <boost/algorithm/string.hpp>
 #include <string>
 
 namespace oiio = OIIO;
@@ -42,6 +41,7 @@ enum class EImageFileType
   TIFF,
   EXR
 };
+
 
 /**
  * @brief get informations about each image file type
@@ -80,11 +80,36 @@ std::ostream& operator<<(std::ostream& os, EImageFileType imageFileType);
 std::istream& operator>>(std::istream& in, EImageFileType& imageFileType);
 
 /**
+ * @brief Return a list of extensions supported by openImageIO ie exists in extension_list from imageio.h
+ * @return A vector containing all supported extensions
+ */
+std::vector<std::string> getSupportedExtensions();
+
+/**
  * @brief Check if input image extension is supported by openImageIO ie exists in extension_list from imageio.h
  * @param[in] ext - image extension
  * @return true if valid extension
  */
-bool isSupported(const std::string &ext);
+bool isSupported(const std::string& ext);
+
+
+/**
+* @brief Data type use to write the image
+*/
+enum class EStorageDataType
+{
+    Float, //< Use full floating point precision to store
+    Half, //< Use half (values our of range could become inf or nan)
+    HalfFinite, //< Use half, but ensures out-of-range pixels are clamps to keep finite pixel values
+    Auto //< Use half if all pixels can be stored in half without clamp, else use full float
+};
+
+std::string EStorageDataType_informations();
+EStorageDataType EStorageDataType_stringToEnum(const std::string& dataType);
+std::string EStorageDataType_enumToString(const EStorageDataType dataType);
+std::ostream& operator<<(std::ostream& os, EStorageDataType dataType);
+std::istream& operator>>(std::istream& in, EStorageDataType& dataType);
+
 
 /**
  * @brief convert a metadata string map into an oiio::ParamValueList
