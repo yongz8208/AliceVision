@@ -7,6 +7,7 @@
 #pragma once
 
 #include <aliceVision/mvsData/Matrix3x3.hpp>
+#include <aliceVision/mvsData/Matrix3x4.hpp>
 #include <aliceVision/mvsData/Point2d.hpp>
 #include <aliceVision/mvsData/Point3d.hpp>
 #include <aliceVision/mvsData/Rgb.hpp>
@@ -135,6 +136,8 @@ public:
     bool loadFromObjAscii(const std::string& objAsciiFileName);
 
     void addMesh(const Mesh& mesh);
+
+    void applyTransform(const Matrix3x4& matrix);
 
     void getTrisMap(StaticVector<StaticVector<int>>& out, const mvsUtils::MultiViewParams& mp, int rc, int scale, int w, int h);
     void getTrisMap(StaticVector<StaticVector<int>>& out, StaticVector<int>& visTris, const mvsUtils::MultiViewParams& mp, int rc, int scale,
