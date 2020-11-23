@@ -42,6 +42,20 @@ enum class EImageFileType
   EXR
 };
 
+/**
+ * @brief aggregate for multiple image reading options
+ */
+struct SImageReadOptions
+{  
+  SImageReadOptions(EImageColorSpace colorSpace = EImageColorSpace::AUTO, bool useWhiteBalance = true) :
+  outputColorSpace(colorSpace), applyWhiteBalance(useWhiteBalance)
+  {
+  }
+
+  EImageColorSpace outputColorSpace;
+  bool applyWhiteBalance;
+};
+
 
 /**
  * @brief get informations about each image file type
@@ -161,12 +175,12 @@ void getBufferFromImage(Image<RGBColor>& image, oiio::ImageBuf& buffer);
  * @param[out] image The output image buffer
  * @param[in] image color space
  */
-void readImage(const std::string& path, Image<float>& image, EImageColorSpace imageColorSpace);
-void readImage(const std::string& path, Image<unsigned char>& image, EImageColorSpace imageColorSpace);
-void readImage(const std::string& path, Image<RGBAfColor>& image, EImageColorSpace imageColorSpace);
-void readImage(const std::string& path, Image<RGBAColor>& image, EImageColorSpace imageColorSpace);
-void readImage(const std::string& path, Image<RGBfColor>& image, EImageColorSpace imageColorSpace);
-void readImage(const std::string& path, Image<RGBColor>& image, EImageColorSpace imageColorSpace);
+void readImage(const std::string& path, Image<float>& image, const SImageReadOptions & imageReadOptions);
+void readImage(const std::string& path, Image<unsigned char>& image, const SImageReadOptions & imageReadOptions);
+void readImage(const std::string& path, Image<RGBAfColor>& image, const SImageReadOptions & imageReadOptions);
+void readImage(const std::string& path, Image<RGBAColor>& image, const SImageReadOptions & imageReadOptions);
+void readImage(const std::string& path, Image<RGBfColor>& image, const SImageReadOptions & imageReadOptions);
+void readImage(const std::string& path, Image<RGBColor>& image, const SImageReadOptions & imageReadOptions);
 
 /**
  * @brief write an image with a given path and buffer
