@@ -781,7 +781,7 @@ int aliceVision_main(int argc, char **argv)
   {
     if (vitem.second) 
     {
-      vitem.second->addMetadata("useWhiteBalance", (useInternalWhiteBalance)?"1":"0");
+      vitem.second->addMetadata("AliceVision::useWhiteBalance", (useInternalWhiteBalance)?"1":"0");
     }
   }
   

@@ -359,6 +359,16 @@ public:
     return static_cast<EEXIFOrientation>(orientation);
   }
 
+  const bool getApplyWhiteBalance() const 
+  {
+    if (getIntMetadata({"AliceVision::useWhiteBalance"}) == 0) 
+    {
+      return false;
+    }
+    
+    return true;
+  }
+
   const bool hasMetadataDateTimeOriginal() const
   {
       return hasMetadata(
