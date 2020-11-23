@@ -159,7 +159,13 @@ oiio::ParamValueList getMetadataFromMap(const std::map<std::string, std::string>
 
 oiio::ParamValueList readImageMetadata(const std::string& path, int& width, int& height)
 {
-  std::unique_ptr<oiio::ImageInput> in(oiio::ImageInput::open(path));
+  oiio::ImageSpec configSpec;
+
+  // libRAW configuration
+  configSpec.attribute("raw:user_flip", 0);
+
+  std::unique_ptr<oiio::ImageInput> in(oiio::ImageInput::open(path, &configSpec));
+
   oiio::ImageSpec spec = in->spec();
 
   if(!in)
@@ -254,6 +260,7 @@ void readImage(const std::string& path,
   oiio::ImageSpec configSpec;
 
   // libRAW configuration
+  configSpec.attribute("raw:user_flip", 0);
   configSpec.attribute("raw:auto_bright", 0);       // don't want exposure correction
   configSpec.attribute("raw:use_camera_wb", ((imageReadOptions.applyWhiteBalance)?1:0));     // want white balance correction
   configSpec.attribute("raw:use_camera_matrix", 3); // want to use embeded color profile
