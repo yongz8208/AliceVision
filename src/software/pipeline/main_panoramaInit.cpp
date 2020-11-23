@@ -773,7 +773,7 @@ int main(int argc, char * argv[])
       Eigen::AngleAxis<double> Myaw(yaw, Eigen::Vector3d::UnitY());
       Eigen::AngleAxis<double> Mpitch(pitch, Eigen::Vector3d::UnitX());
       Eigen::AngleAxis<double> Mroll(roll, Eigen::Vector3d::UnitZ());
-      Eigen::AngleAxis<double> Mimage(additionalAngle-M_PI_2, Eigen::Vector3d::UnitZ());
+      Eigen::AngleAxis<double> Mimage(additionalAngle + M_PI, Eigen::Vector3d::UnitZ());
 
       Eigen::Matrix3d cRo = Myaw.toRotationMatrix() * Mpitch.toRotationMatrix() *  Mroll.toRotationMatrix() * Mimage.toRotationMatrix();
 
