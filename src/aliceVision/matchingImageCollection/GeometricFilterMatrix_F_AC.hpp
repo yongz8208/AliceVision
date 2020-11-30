@@ -159,7 +159,9 @@ struct GeometricFilterMatrix_F_AC : public GeometricFilterMatrix
     // fill geometricInliersPerType with inliers from putativeMatchesPerType
     copyInlierMatches(inliers, putativeMatchesPerType, descTypes, out_geometricInliersPerType);
 
-    // have matches has strong support
+    // have matches has strong support 
+
+    /*This is too restrictive for the feature matching*/
     const bool hasStrongSupport = matching::hasStrongSupport(out_geometricInliersPerType, estimationPair.second);
 
     return EstimationStatus(true, hasStrongSupport);
