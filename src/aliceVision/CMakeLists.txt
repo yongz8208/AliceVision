@@ -54,6 +54,8 @@ if(ALICEVISION_BUILD_MVS)
   endif()
 endif()
 
+add_subdirectory(photometricStereo)
+
 # Install rules
 
 install(
