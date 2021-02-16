@@ -13,6 +13,7 @@
 #include <aliceVision/sfmData/RotationPrior.hpp>
 #include <aliceVision/sfmData/View.hpp>
 #include <aliceVision/sfmData/Rig.hpp>
+#include <aliceVision/sfmData/timeLine.hpp>
 #include <aliceVision/camera/camera.hpp>
 #include <aliceVision/types.hpp>
 
@@ -73,6 +74,8 @@ public:
   Constraints2D constraints2d;
   /// Rotation priors
   RotationPriors rotationpriors;
+  /// TimeLine for sequenecs
+  TimeLine timeLine;
 
   SfMData();
   ~SfMData();
@@ -138,6 +141,13 @@ public:
    */
   const Landmarks& getControlPoints() const {return control_points;}
   Landmarks& getControlPoints() {return control_points;}
+
+  /**
+   * @brief Get control points
+   * @return control points
+   */
+  const TimeLine& getTimeLine() const {return timeLine;}
+  TimeLine& getTimeLine() {return timeLine;}
 
   /**
    * @brief Get relative features folder paths

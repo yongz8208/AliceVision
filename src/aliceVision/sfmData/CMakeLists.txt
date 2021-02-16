@@ -7,6 +7,7 @@ set(sfmData_files_headers
   Rig.hpp
   uid.hpp
   colorize.hpp
+  timeLine.hpp
 )
 
 # Sources
@@ -15,6 +16,7 @@ set(sfmData_files_sources
   uid.cpp
   View.cpp
   colorize.cpp
+  timeLine.cpp
 )
 
 alicevision_add_library(aliceVision_sfmData
