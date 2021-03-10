@@ -27,7 +27,21 @@ namespace aliceVision {
 namespace sfm {
 
 /// Image score contains <ImageId, NbPutativeCommonPoint, score, isIntrinsicsReconstructed>
-typedef std::tuple<IndexT, std::size_t, std::size_t, bool> ViewConnectionScore;
+struct ViewConnectionScore 
+{
+  IndexT imageId;
+  size_t nbPutativeCommonPoint;
+  size_t score;
+  bool isIntrinsicsReconstructed;
+
+  ViewConnectionScore(IndexT id, size_t nb, size_t s, bool valid)
+  {
+    imageId = id;
+    nbPutativeCommonPoint = nb;
+    score = s;
+    isIntrinsicsReconstructed = valid;
+  }
+};
 
 /**
  * @brief Sequential SfM Pipeline Reconstruction Engine.

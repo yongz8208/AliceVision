@@ -932,7 +932,7 @@ bool ReconstructionEngine_sequentialSfM::findConnectedViews(
   // Sort by the image score
   std::sort(out_connectedViews.begin(), out_connectedViews.end(),
             [](const ViewConnectionScore& t1, const ViewConnectionScore& t2) {
-    return std::get<2>(t1) > std::get<2>(t2);
+    return t1.score > t2.score;
   });
   return !out_connectedViews.empty();
 }
@@ -957,13 +957,13 @@ bool ReconstructionEngine_sequentialSfM::findNextBestViews(
   // print the 30 best scores
   for(std::size_t i = 0; i < vec_viewsScore.size() && i < 30; ++i)
   {
-    ALICEVISION_LOG_DEBUG_OBJ << std::get<2>(vec_viewsScore[i]) << "(" << std::get<1>(vec_viewsScore[i]) << "), ";
+    ALICEVISION_LOG_DEBUG_OBJ << vec_viewsScore[i].score << "(" << vec_viewsScore[i].nbPutativeCommonPoint  << "), ";
   }
   ALICEVISION_LOG_DEBUG_OBJ << std::endl;
 
   // If the list is empty or if the list contains images with no correspondences
   // -> (no resection will be possible)
-  if (vec_viewsScore.empty() || std::get<1>(vec_viewsScore[0]) == 0)
+  if (vec_viewsScore.empty() || vec_viewsScore[0].nbPutativeCommonPoint == 0)
   {
     ALICEVISION_LOG_DEBUG("Failed to find next best views :");
     if(vec_viewsScore.empty())
@@ -974,7 +974,7 @@ bool ReconstructionEngine_sequentialSfM::findNextBestViews(
     {
       ALICEVISION_LOG_DEBUG_OBJ << "Not enough point in the putative images: ";
       for(auto v: vec_viewsScore)
-        ALICEVISION_LOG_DEBUG_OBJ << std::get<1>(v) << ", ";
+        ALICEVISION_LOG_DEBUG_OBJ << v.nbPutativeCommonPoint << ", ";
     }
     ALICEVISION_LOG_DEBUG_OBJ << std::endl;
     // All remaining images cannot be used for pose estimation
@@ -982,12 +982,12 @@ bool ReconstructionEngine_sequentialSfM::findNextBestViews(
   }
 
   // Add the image view index with the best score
-  out_selectedViewIds.push_back(std::get<0>(vec_viewsScore[0]));
+  out_selectedViewIds.push_back(vec_viewsScore[0].imageId);
 
   #ifdef ALICEVISION_NEXTBESTVIEW_WITHOUT_SCORE
     static const float dThresholdGroup = 0.75f;
     // Number of 2D-3D correspondences for the best view.
-    const IndexT bestScore = std::get<2>(vec_viewsScore[0]);
+    const IndexT bestScore = vec_viewsScore[0].score;
     // Add all the image view indexes that have at least N% of the score of the best image.
     const size_t scoreThreshold = dThresholdGroup * bestScore;
   #else
@@ -996,12 +996,12 @@ bool ReconstructionEngine_sequentialSfM::findNextBestViews(
 
   for (std::size_t i = 1;
        i < vec_viewsScore.size() &&
-       std::get<1>(vec_viewsScore[i]) > minPointsThreshold && // ensure min number of points
-       std::get<2>(vec_viewsScore[i]) > scoreThreshold; // ensure score level
+       vec_viewsScore[i].nbPutativeCommonPoint > minPointsThreshold && // ensure min number of points
+       vec_viewsScore[i].score > scoreThreshold; // ensure score level
        ++i)
   {
-    out_selectedViewIds.push_back(std::get<0>(vec_viewsScore[i]));
-    if(!std::get<3>(vec_viewsScore[i]))
+    out_selectedViewIds.push_back(vec_viewsScore[i].imageId);
+    if(!vec_viewsScore[i].isIntrinsicsReconstructed)
     {
       // If we add a new intrinsic, it is a sensitive stage in the process,
       // so it is better to perform a Bundle Adjustment just after.
@@ -1040,8 +1040,8 @@ bool ReconstructionEngine_sequentialSfM::findNextBestViews(
   ALICEVISION_LOG_DEBUG(
     "Find next best views took: " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - chrono_start).count() << " msec\n"
     "\t# images : " << out_selectedViewIds.size() << "\n"
-    "\t- scores: from " << std::get<2>(vec_viewsScore.front()) << " to " << std::get<2>(vec_viewsScore[out_selectedViewIds.size()-1]) << " (threshold was " << scoreThreshold << ")\n"
-    "\t- features: from " << std::get<1>(vec_viewsScore.front()) << " to " << std::get<1>(vec_viewsScore[out_selectedViewIds.size()-1]) << " (threshold was " << minPointsThreshold << ")");
+    "\t- scores: from " << vec_viewsScore.front().score << " to " << vec_viewsScore[out_selectedViewIds.size()-1].score << " (threshold was " << scoreThreshold << ")\n"
+    "\t- features: from " << vec_viewsScore.front().nbPutativeCommonPoint << " to " << vec_viewsScore[out_selectedViewIds.size()-1].nbPutativeCommonPoint << " (threshold was " << minPointsThreshold << ")");
 
   return (!out_selectedViewIds.empty());
 }
