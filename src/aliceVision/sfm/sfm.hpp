@@ -26,6 +26,7 @@
 #include <aliceVision/sfm/pipeline/global/reindexGlobalSfM.hpp>
 #include <aliceVision/sfm/pipeline/global/ReconstructionEngine_globalSfM.hpp>
 #include <aliceVision/sfm/pipeline/panorama/ReconstructionEngine_panorama.hpp>
+#include <aliceVision/sfm/pipeline/panorama/ReconstructionEngine_sequentialPanorama.hpp>
 #include <aliceVision/sfm/pipeline/sequential/ReconstructionEngine_sequentialSfM.hpp>
 #include <aliceVision/sfm/pipeline/structureFromKnownPoses/StructureEstimationFromKnownPoses.hpp>
 #include <aliceVision/sfm/pipeline/localization/SfMLocalizer.hpp>

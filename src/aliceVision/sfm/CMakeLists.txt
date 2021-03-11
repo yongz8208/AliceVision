@@ -15,6 +15,7 @@ set(sfm_files_headers
   pipeline/RelativePoseInfo.hpp
   pipeline/structureFromKnownPoses/StructureEstimationFromKnownPoses.hpp
   pipeline/panorama/ReconstructionEngine_panorama.hpp
+  pipeline/panorama/ReconstructionEngine_sequentialPanorama.hpp
   pipeline/regionsIO.hpp
   utils/alignment.hpp
   utils/statistics.hpp
@@ -47,6 +48,7 @@ set(sfm_files_sources
   pipeline/RelativePoseInfo.cpp
   pipeline/structureFromKnownPoses/StructureEstimationFromKnownPoses.cpp
   pipeline/panorama/ReconstructionEngine_panorama.cpp
+  pipeline/panorama/ReconstructionEngine_sequentialPanorama.cpp
   pipeline/regionsIO.cpp
   utils/alignment.cpp
   utils/statistics.cpp

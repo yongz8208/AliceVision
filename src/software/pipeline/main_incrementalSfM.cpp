@@ -301,10 +301,11 @@ int aliceVision_main(int argc, char **argv)
       return EXIT_FAILURE;
     }
   }
-
-  sfm::ReconstructionEngine_sequentialSfM sfmEngine(
+  
+  sfm::ReconstructionEngine_sequentialPanorama::Params panoramaParams;
+  sfm::ReconstructionEngine_sequentialPanorama sfmEngine(
     sfmData,
-    sfmParams,
+    panoramaParams,
     extraInfoFolder,
     (fs::path(extraInfoFolder) / "sfm_log.html").string());
 

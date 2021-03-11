@@ -12,8 +12,6 @@
 #include <aliceVision/sfm/pipeline/localization/SfMLocalizer.hpp>
 #include <aliceVision/sfm/pipeline/pairwiseMatchesIO.hpp>
 #include <aliceVision/sfmDataIO/sfmDataIO.hpp>
-#include <aliceVision/feature/FeaturesPerView.hpp>
-#include <aliceVision/track/TracksBuilder.hpp>
 #include <dependencies/htmlDoc/htmlDoc.hpp>
 #include <aliceVision/utils/Histogram.hpp>
 

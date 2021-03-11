@@ -9,6 +9,8 @@
 
 #include <aliceVision/sfmData/SfMData.hpp>
 #include <aliceVision/sfmData/colorize.hpp>
+#include <aliceVision/track/TracksBuilder.hpp>
+#include <aliceVision/feature/FeaturesPerView.hpp>
 
 #include <string>
 #include <random>
@@ -91,6 +93,26 @@ protected:
   std::mt19937 _randomNumberGenerator;
 };
 
+/**
+ * @brief Compute indexes of all features in a fixed size pyramid grid.
+ * These precomputed values are useful to the next best view selection for incremental SfM.
+ *
+ * @param[in] tracksPerView: The list of TrackID per view
+ * @param[in] map_tracks: All putative tracks
+ * @param[in] views: All views
+ * @param[in] featuresProvider: Input features and descriptors
+ * @param[in] pyramidDepth: Depth of the pyramid.
+ * @param[out] tracksPyramidPerView:
+ *             Precomputed list of pyramid cells ID for each track in each view.
+ */
+void computeTracksPyramidPerView(
+    const track::TracksPerView& tracksPerView,
+    const track::TracksMap& map_tracks,
+    const sfmData::Views& views,
+    const feature::FeaturesPerView& featuresProvider,
+    const std::size_t pyramidBase,
+    const std::size_t pyramidDepth,
+    track::TracksPyramidPerView& tracksPyramidPerView);
 
 } // namespace sfm
 } // namespace aliceVision

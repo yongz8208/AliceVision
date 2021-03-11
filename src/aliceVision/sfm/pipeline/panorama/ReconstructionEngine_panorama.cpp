@@ -170,7 +170,7 @@ aliceVision::EstimationStatus robustHomographyEstimationAC(const Mat2X &x1,
  * @param[out] vec_inliers The inliers satisfying the rotation as a list of indices.
  * @return the status of the estimation.
  */
-aliceVision::EstimationStatus robustRotationEstimationAC(const Mat &x1, const Mat &x2, const std::pair<std::size_t, std::size_t> &imgSize1, const std::pair<std::size_t, std::size_t> &imgSize2, std::mt19937 &randomNumberGenerator,  Mat3 &R, std::vector<std::size_t> &vec_inliers)
+aliceVision::EstimationStatus robustRotationEstimationAC(const Mat &x1, const Mat &x2, std::mt19937 &randomNumberGenerator,  Mat3 &R, std::vector<std::size_t> &vec_inliers)
 {
     // using KernelType = multiview::RelativePoseKernel<
     using KernelType = multiview::RelativePoseSphericalKernel<
@@ -208,11 +208,11 @@ bool robustRelativeRotation_fromH(const Mat2X &x1, const Mat2X &x2, const std::p
   return true;
 }
 
-bool robustRelativeRotation_fromR(const Mat &x1, const Mat &x2, const std::pair<size_t, size_t> &imgSize1, const std::pair<size_t, size_t> &imgSize2, std::mt19937 &randomNumberGenerator, RelativeRotationInfo &relativeRotationInfo, const size_t max_iteration_count)
+bool robustRelativeRotation_fromR(const Mat &x1, const Mat &x2, std::mt19937 &randomNumberGenerator, RelativeRotationInfo &relativeRotationInfo)
 {
   std::vector<std::size_t> vec_inliers{};
 
-  const auto status = robustRotationEstimationAC(x1, x2, imgSize1, imgSize2, randomNumberGenerator, relativeRotationInfo._relativeRotation, relativeRotationInfo._inliers);
+  const auto status = robustRotationEstimationAC(x1, x2, randomNumberGenerator, relativeRotationInfo._relativeRotation, relativeRotationInfo._inliers);
   if (!status.isValid && !status.hasStrongSupport) {
     return false;
   }
@@ -652,7 +652,7 @@ void ReconstructionEngine_panorama::Compute_Relative_Rotations(rotationAveraging
           RelativeRotationInfo relativeRotation_info;
           relativeRotation_info._initialResidualTolerance = std::pow(cam_I->imagePlaneToCameraPlaneError(2.5) * cam_J->imagePlaneToCameraPlaneError(2.5), 1./2.);
           
-          if(!robustRelativeRotation_fromR(x1, x2, imageSize, imageSize, _randomNumberGenerator, relativeRotation_info))
+          if(!robustRelativeRotation_fromR(x1, x2, _randomNumberGenerator, relativeRotation_info))
           {
             std::cout << view_I->getImagePath() << std::endl;
             std::cout << view_J->getImagePath() << std::endl;

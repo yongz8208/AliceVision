@@ -54,77 +54,6 @@ using namespace aliceVision::geometry;
 using namespace aliceVision::camera;
 using namespace aliceVision::sfmData;
 
-/**
- * @brief Compute indexes of all features in a fixed size pyramid grid.
- * These precomputed values are useful to the next best view selection for incremental SfM.
- *
- * @param[in] tracksPerView: The list of TrackID per view
- * @param[in] map_tracks: All putative tracks
- * @param[in] views: All views
- * @param[in] featuresProvider: Input features and descriptors
- * @param[in] pyramidDepth: Depth of the pyramid.
- * @param[out] tracksPyramidPerView:
- *             Precomputed list of pyramid cells ID for each track in each view.
- */
-void computeTracksPyramidPerView(
-    const track::TracksPerView& tracksPerView,
-    const track::TracksMap& map_tracks,
-    const Views& views,
-    const feature::FeaturesPerView& featuresProvider,
-    const std::size_t pyramidBase,
-    const std::size_t pyramidDepth,
-    track::TracksPyramidPerView& tracksPyramidPerView)
-{
-  std::vector<std::size_t> widthPerLevel(pyramidDepth);
-  std::vector<std::size_t> startPerLevel(pyramidDepth);
-  std::size_t start = 0;
-  for(std::size_t level = 0; level < pyramidDepth; ++level)
-  {
-    startPerLevel[level] = start;
-    widthPerLevel[level] = std::pow(pyramidBase, level+1);
-    start += Square(widthPerLevel[level]);
-  }
-
-  tracksPyramidPerView.reserve(tracksPerView.size());
-  for(const auto& viewTracks: tracksPerView)
-  {
-    auto& trackPyramid = tracksPyramidPerView[viewTracks.first];
-    // reserve 500 tracks in each view
-    trackPyramid.reserve(500 * pyramidDepth);
-  }
-
-  for(const auto& viewTracks: tracksPerView)
-  {
-    const auto viewId = viewTracks.first;
-    auto& tracksPyramidIndex = tracksPyramidPerView[viewId];
-    const View& view = *views.at(viewId).get();
-    std::vector<double> cellWidthPerLevel(pyramidDepth);
-    std::vector<double> cellHeightPerLevel(pyramidDepth);
-    for(std::size_t level = 0; level < pyramidDepth; ++level)
-    {
-      cellWidthPerLevel[level] = (double)view.getWidth() / (double)widthPerLevel[level];
-      cellHeightPerLevel[level] = (double)view.getHeight() / (double)widthPerLevel[level];
-    }
-    for(std::size_t i = 0; i < viewTracks.second.size(); ++i)
-    {
-      const std::size_t trackId = viewTracks.second[i];
-      const track::Track& track = map_tracks.at(trackId);
-      const std::size_t featIndex = track.featPerView.at(viewId);
-      const auto& feature = featuresProvider.getFeatures(viewId, track.descType)[featIndex]; 
-      
-      for(std::size_t level = 0; level < pyramidDepth; ++level)
-      {
-        std::size_t xCell = std::floor(std::max(feature.x(), 0.0f) / cellWidthPerLevel[level]);
-        std::size_t yCell = std::floor(std::max(feature.y(), 0.0f) / cellHeightPerLevel[level]);
-        xCell = std::min(xCell, widthPerLevel[level] - 1);
-        yCell = std::min(yCell, widthPerLevel[level] - 1);
-        const std::size_t levelIndex = xCell + yCell * widthPerLevel[level];
-        assert(levelIndex < Square(widthPerLevel[level]));
-        tracksPyramidIndex[trackId * pyramidDepth + level] = startPerLevel[level] + levelIndex;
-      }
-    }
-  }
-}
 
 ReconstructionEngine_sequentialSfM::ReconstructionEngine_sequentialSfM(
   const SfMData& sfmData,
@@ -171,7 +100,6 @@ bool ReconstructionEngine_sequentialSfM::process()
   if(_sfmData.getPoses().empty())
   {
     std::vector<Pair> initialImagePairCandidates = getInitialImagePairsCandidates();
-
     createInitialReconstruction(initialImagePairCandidates);
   }
   else if(_sfmData.getLandmarks().empty())
@@ -200,7 +128,11 @@ bool ReconstructionEngine_sequentialSfM::process()
   }
 
   // reconstruction
-  const double elapsedTime = incrementalReconstruction();
+  double elapsedTime;
+  if(!_sfmData.getPoses().empty())
+  {
+    elapsedTime = incrementalReconstruction();
+  }
 
   exportStatistics(elapsedTime);
 
@@ -295,8 +227,7 @@ std::vector<Pair> ReconstructionEngine_sequentialSfM::getInitialImagePairsCandid
     else if(_params.userInitialImagePair.second != UndefinedIndexT)
       filterViewId = _params.userInitialImagePair.second;
 
-    if(!getBestInitialImagePairs(initialImagePairCandidates, filterViewId))
-      throw std::runtime_error("No valid initial pair found automatically.");
+    getBestInitialImagePairs(initialImagePairCandidates, filterViewId);
   }
   else
   {
@@ -318,7 +249,6 @@ void ReconstructionEngine_sequentialSfM::createInitialReconstruction(const std::
       return;
     }
   }
-  throw std::runtime_error("Initialization failed after trying all possible initial image pairs.");
 }
 
 void ReconstructionEngine_sequentialSfM::remapLandmarkIdsToTrackIds()
@@ -1346,6 +1276,11 @@ bool ReconstructionEngine_sequentialSfM::getBestInitialImagePairs(std::vector<Pa
       const float scoring_angle = vec_angles[median_index];
       const double imagePairScore = std::min(computeCandidateImageScore(I, validCommonTracksIds), computeCandidateImageScore(J, validCommonTracksIds));
       double score = scoring_angle * imagePairScore;
+
+      if (scoring_angle > 1.0)
+      {
+        continue;
+      }
 
       // If the image pair is outside the reasonable angle range: [fRequired_min_angle;fLimit_max_angle]
       // we put it in negative to ensure that image pairs with reasonable angle will win,
