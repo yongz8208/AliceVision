@@ -59,6 +59,7 @@ private:
   void initializePyramidScoring();
   bool findNextPair(std::pair<IndexT, IndexT> & pair, Mat3 & foundRotation, const std::set<IndexT> & reconstructedViews, const std::set<IndexT> & availableViews);
   bool incrementalReconstruction();
+  bool bundleAdjustment(std::set<IndexT>& reconstructedViews);
   
   /**
    * @brief Compute a score of the view for a subset of features. This is

@@ -111,8 +111,10 @@ bool ReconstructionEngine_sequentialPanorama::findNextPair(std::pair<IndexT, Ind
     std::advance(iter, i);
 
     const Pair current_pair = iter->first;
-    const IndexT I = std::min(current_pair.first, current_pair.second);
-    const IndexT J = std::max(current_pair.first, current_pair.second);
+    IndexT I = std::min(current_pair.first, current_pair.second);
+    IndexT J = std::max(current_pair.first, current_pair.second);
+
+    
 
     if (reconstructedViews.size() == 0)
     {
@@ -124,12 +126,17 @@ bool ReconstructionEngine_sequentialPanorama::findNextPair(std::pair<IndexT, Ind
     else 
     {
       ///If at least a reconstructed view is available, we want one view to be a reconstructed view, and the other a new view
-      if (!(availableViews.count(I) && reconstructedViews.count(J)))
+      if (reconstructedViews.count(I) && availableViews.count(J))
       {
-        if (!(availableViews.count(J) && reconstructedViews.count(I)))
-        {
-          continue;
-        }
+        
+      }
+      else if (reconstructedViews.count(J) && availableViews.count(I))
+      {
+        std::swap(I, J);
+      }
+      else 
+      {
+        continue;
       }
     }
 
@@ -192,7 +199,11 @@ bool ReconstructionEngine_sequentialPanorama::findNextPair(std::pair<IndexT, Ind
     }
   }
 
-  if (bestScore == 0)
+  std::cout << _sfmData.getView(pair.first).getImagePath() << std::endl;
+  std::cout << _sfmData.getView(pair.second).getImagePath() << std::endl;
+
+  std::cout << bestScore << std::endl;
+  if (bestScore < 30)
   {
     return false;
   }
@@ -200,23 +211,6 @@ bool ReconstructionEngine_sequentialPanorama::findNextPair(std::pair<IndexT, Ind
   return true;
 }
 
-bool ReconstructionEngine_sequentialPanorama::incrementalReconstruction()
-{
-  std::set<IndexT> validTracks;
-
-  for(const auto& viewIt: _sfmData.views)
-  {
-    IndexT viewId = viewIt.first;
-
-    if (_sfmData.isPoseAndIntrinsicDefined(viewId))
-    {
-      const aliceVision::track::TrackIdSet& set_tracksIds = _map_tracksPerView.at(viewId);
-      validTracks.insert(set_tracksIds.begin(), set_tracksIds.end());
-    }
-  }
-
-  return true;
-}
 
 bool ReconstructionEngine_sequentialPanorama::process()
 {
@@ -262,22 +256,37 @@ bool ReconstructionEngine_sequentialPanorama::process()
 
   while (1)
   {
-    Mat3 R;
+    Mat3 csecond_R_cfirst;
     std::pair<IndexT, IndexT> nextPair;
-    bool ret = findNextPair(nextPair, R, reconstructedViews, availableViews);
+    bool ret = findNextPair(nextPair, csecond_R_cfirst, reconstructedViews, availableViews);
     if (!ret)
     {
       return false;
     }
 
-    reconstructedViews.insert(nextPair.first);
+    //Store result in absolute
+    sfmData::CameraPose firstPose = _sfmData.getPose(_sfmData.getView(nextPair.first));
+    Mat3 cfirst_R_w = firstPose.getTransform().rotation();
+    Mat3 csecond_R_w = csecond_R_cfirst * cfirst_R_w;
+    const geometry::Pose3& secondPose = geometry::Pose3(csecond_R_w, Vec3::Zero());
+    _sfmData.setPose(_sfmData.getView(nextPair.second), sfmData::CameraPose(secondPose));
+
     reconstructedViews.insert(nextPair.second);
-    availableViews.erase(nextPair.first);
     availableViews.erase(nextPair.second);
 
-    std::cout << nextPair.first << " " << nextPair.second << std::endl;
+    std::cout << availableViews.size() << std::endl;
+
+    if (!bundleAdjustment(reconstructedViews)) 
+    {
+      return false;
+    }
   }
 
+  return true;
+}
+
+bool ReconstructionEngine_sequentialPanorama::bundleAdjustment(std::set<IndexT>& reconstructedViews) 
+{
   return true;
 }
 
