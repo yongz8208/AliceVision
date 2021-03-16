@@ -57,9 +57,13 @@ public:
 private:
   std::size_t fuseMatchesIntoTracks();
   void initializePyramidScoring();
-  bool findNextPair(std::pair<IndexT, IndexT> & pair, Mat3 & foundRotation, const std::set<IndexT> & reconstructedViews, const std::set<IndexT> & availableViews);
+  bool findFirstPair(std::pair<IndexT, IndexT> & pair, Mat3 & foundRotation, const std::set<IndexT> & availableViews);
   bool incrementalReconstruction();
-  bool bundleAdjustment(std::set<IndexT>& reconstructedViews);
+  bool bundleAdjustment();
+  bool buildLandmarks(sfmData::View & view);
+  IndexT findNextBestImage(const std::set<IndexT> & availableViews);
+  bool estimateView(sfmData::View & view);
+  void removeOutliers();
   
   /**
    * @brief Compute a score of the view for a subset of features. This is
@@ -92,6 +96,7 @@ private:
   track::TracksMap _map_tracks;
   track::TracksPerView _map_tracksPerView;
   track::TracksPyramidPerView _map_featsPyramidPerView;
+  std::set<size_t> _reconstructed_trackId;
 
   /// internal cache of precomputed values for the weighting of the pyramid levels
   std::vector<int> _pyramidWeights;

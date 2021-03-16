@@ -8,10 +8,12 @@
 #include <aliceVision/sfm/pipeline/panorama/ReconstructionEngine_sequentialPanorama.hpp>
 
 #include <aliceVision/track/tracksUtils.hpp>
+#include <aliceVision/sfm/BundleAdjustmentSymbolicCeres.hpp>
 
 #include <aliceVision/sfmData/CameraPose.hpp>
 #include <aliceVision/system/Logger.hpp>
 
+#include <chrono>
 #include <random>
 
 namespace aliceVision {
@@ -99,7 +101,7 @@ std::size_t ReconstructionEngine_sequentialPanorama::computeCandidateImageScore(
 }
 
 
-bool ReconstructionEngine_sequentialPanorama::findNextPair(std::pair<IndexT, IndexT> & pair, Mat3 & foundRotation, const std::set<IndexT> & reconstructedViews, const std::set<IndexT> & availableViews)
+bool ReconstructionEngine_sequentialPanorama::findFirstPair(std::pair<IndexT, IndexT> & pair, Mat3 & foundRotation, const std::set<IndexT> & availableViews)
 {  
   Mat3 bestR;
   size_t bestScore = 0;
@@ -114,30 +116,9 @@ bool ReconstructionEngine_sequentialPanorama::findNextPair(std::pair<IndexT, Ind
     IndexT I = std::min(current_pair.first, current_pair.second);
     IndexT J = std::max(current_pair.first, current_pair.second);
 
-    
-
-    if (reconstructedViews.size() == 0)
+    if (!(availableViews.count(I) && availableViews.count(J)))
     {
-      if (!(availableViews.count(I) && availableViews.count(J)))
-      {
-        continue;
-      }
-    }
-    else 
-    {
-      ///If at least a reconstructed view is available, we want one view to be a reconstructed view, and the other a new view
-      if (reconstructedViews.count(I) && availableViews.count(J))
-      {
-        
-      }
-      else if (reconstructedViews.count(J) && availableViews.count(I))
-      {
-        std::swap(I, J);
-      }
-      else 
-      {
-        continue;
-      }
+      continue;
     }
 
     const std::shared_ptr<sfmData::View> viewI = _sfmData.getViews().at(I);
@@ -199,10 +180,6 @@ bool ReconstructionEngine_sequentialPanorama::findNextPair(std::pair<IndexT, Ind
     }
   }
 
-  std::cout << _sfmData.getView(pair.first).getImagePath() << std::endl;
-  std::cout << _sfmData.getView(pair.second).getImagePath() << std::endl;
-
-  std::cout << bestScore << std::endl;
   if (bestScore < 30)
   {
     return false;
@@ -211,6 +188,262 @@ bool ReconstructionEngine_sequentialPanorama::findNextPair(std::pair<IndexT, Ind
   return true;
 }
 
+IndexT ReconstructionEngine_sequentialPanorama::findNextBestImage(const std::set<IndexT> & availableViews)
+{
+  size_t bestScore = 0;
+  IndexT bestId = UndefinedIndexT;
+
+  for (IndexT idview : availableViews)
+  {
+    const aliceVision::track::TrackIdSet& set_tracksIds = _map_tracksPerView.at(idview);
+    if (set_tracksIds.empty())
+    {
+      continue;
+    }
+
+    std::vector<std::size_t> validTrackIds;
+    std::set_intersection(set_tracksIds.begin(), set_tracksIds.end(), _reconstructed_trackId.begin(), _reconstructed_trackId.end(), std::back_inserter(validTrackIds));
+
+    if (validTrackIds.size() > bestScore)
+    {
+      bestScore = validTrackIds.size();
+      bestId = idview;
+    }
+  }
+
+  return bestId;
+}
+
+bool ReconstructionEngine_sequentialPanorama::buildLandmarks(sfmData::View & view)
+{
+  const sfmData::Intrinsics::const_iterator iterIntrinsic_I = _sfmData.getIntrinsics().find(view.getIntrinsicId());
+  const std::shared_ptr<camera::Pinhole> cam = std::dynamic_pointer_cast<camera::Pinhole>(iterIntrinsic_I->second);
+  if (cam == nullptr)
+  {
+    return false;
+  }
+
+  const track::TrackIdSet & tracks = _map_tracksPerView[view.getViewId()];
+
+  const sfmData::CameraPose & pose = _sfmData.getPose(view);
+  
+  for (IndexT trackId : tracks)
+  {
+    const track::Track & t = _map_tracks[trackId];
+    const IndexT & featureId = t.featPerView.at(view.getViewId());
+
+    const feature::PointFeatures & features = _featuresPerView->getFeatures(view.getViewId(), t.descType); 
+    
+    Vec2 coords = features[featureId].coords().cast<double>();
+    Vec3 pt = cam->toUnitSphere(cam->removeDistortion(cam->ima2cam(coords)));
+
+    if (_reconstructed_trackId.find(trackId) == _reconstructed_trackId.end())
+    {
+      sfmData::Landmark l(t.descType);
+            
+      double norm = pt.z() + pt.norm();
+
+      l.X.x() = pt.x() / norm;
+      l.X.y() = pt.y() / norm;
+      l.X.z() = 0.0;
+
+      l.referenceView = view.getViewId();
+
+      sfmData::Observation obs(coords, featureId, 1.0);
+      l.observations[view.getViewId()] = obs;
+
+      _sfmData.getLandmarks()[trackId] = l;
+      _reconstructed_trackId.insert(trackId);
+    }
+    else 
+    {
+      sfmData::Landmark & l = _sfmData.getLandmarks()[trackId];
+      if (l.observations.size() == 0) continue;
+
+      sfmData::Observation obs(coords, featureId, 1.0);
+      l.observations[view.getViewId()] = obs;
+    }
+  }
+
+  return true;
+}
+
+bool ReconstructionEngine_sequentialPanorama::estimateView(sfmData::View & v)
+{
+  const sfmData::Intrinsics::const_iterator iterIntrinsicCurrent = _sfmData.getIntrinsics().find(v.getIntrinsicId());
+  const std::shared_ptr<camera::Pinhole> camCurrent = std::dynamic_pointer_cast<camera::Pinhole>(iterIntrinsicCurrent->second);
+  if (camCurrent == nullptr)
+  {
+    return false;
+  }
+
+  const aliceVision::track::TrackIdSet& set_tracksIds = _map_tracksPerView.at(v.getViewId());
+  if (set_tracksIds.empty())
+  {
+    return false;
+  }
+
+  std::vector<std::size_t> validTrackIds;
+  std::set_intersection(set_tracksIds.begin(), set_tracksIds.end(), _reconstructed_trackId.begin(), _reconstructed_trackId.end(), std::back_inserter(validTrackIds));
+
+  
+  const size_t n = validTrackIds.size();
+  Mat xI(3,n), xJ(3,n);
+
+  int pos = 0;
+  for (IndexT trackId : validTrackIds)
+  {
+    const track::Track & t = _map_tracks[trackId];
+
+    const sfmData::Landmark & l = _sfmData.getLandmarks()[trackId];
+
+    IndexT refViewId = l.referenceView;
+    const sfmData::View & refView = _sfmData.getView(refViewId);
+
+    const IndexT & referenceFeatureId = t.featPerView.at(refViewId);
+    const IndexT & currentFeatureId = t.featPerView.at(v.getViewId());
+
+    const sfmData::Intrinsics::const_iterator iterIntrinsicReference = _sfmData.getIntrinsics().find(refView.getIntrinsicId());
+    const std::shared_ptr<camera::Pinhole> camReference = std::dynamic_pointer_cast<camera::Pinhole>(iterIntrinsicReference->second);
+
+    const geometry::Pose3 refPose = _sfmData.getPose(refView).getTransform();
+
+    const feature::PointFeatures & featuresReferenceView = _featuresPerView->getFeatures(refViewId, t.descType); 
+    const feature::PointFeatures & featuresCurrentView = _featuresPerView->getFeatures(v.getViewId(), t.descType); 
+    
+    Vec2 referenceCoords = featuresReferenceView[referenceFeatureId].coords().cast<double>();
+    Vec2 currentCoords = featuresCurrentView[currentFeatureId].coords().cast<double>();
+
+
+    double u = l.X.x();
+    double v = l.X.y();
+
+    double u2 = u * u;
+    double v2 = v * v;
+    double r2 = u2 + v2;
+
+    double lambda = 2.0 / (1.0 + r2);
+    Vec3 X;
+    X.x() = u * lambda;
+    X.y() = v * lambda;
+    X.z() = lambda - 1.0;
+
+    Vec3 rpt = refPose.rotation().transpose() * X;
+    Vec3 cpt = camCurrent->toUnitSphere(camCurrent->removeDistortion(camCurrent->ima2cam(currentCoords)));    
+
+    xI.col(pos) = rpt;
+    xJ.col(pos) = cpt;
+    pos++;
+  }
+
+
+  std::vector<std::size_t> vec_inliers;
+  Mat3 relativeRotation;
+
+  std::mt19937 lrandom = _randomNumberGenerator;
+  const auto status = robustRotationEstimationAC(xI, xJ, lrandom, relativeRotation, vec_inliers);
+  if (!status.isValid && !status.hasStrongSupport) {
+    return false;
+  }
+
+  if (vec_inliers.size() < 30)
+  {
+    return false;
+  }
+
+  const geometry::Pose3& initPose = geometry::Pose3(relativeRotation, Vec3::Zero());
+  _sfmData.setPose(v, sfmData::CameraPose(initPose));
+
+  std::cout << vec_inliers.size() << std::endl;
+
+
+  return true;
+}
+
+void ReconstructionEngine_sequentialPanorama::removeOutliers()
+{
+  size_t pos = 0;
+
+  for (auto & l : _sfmData.getLandmarks())
+  {
+    IndexT refViewId = l.second.referenceView;
+    sfmData::View & refView = _sfmData.getView(refViewId);
+    Mat3 rRw = _sfmData.getPose(refView).getTransform().rotation();
+    
+
+    double u = l.second.X.x();
+    double v = l.second.X.y();
+
+    double u2 = u * u;
+    double v2 = v * v;
+    double r2 = u2 + v2;
+
+    double lambda = 2.0 / (1.0 + r2);
+    Vec3 rpt;
+    rpt.x() = u * lambda;
+    rpt.y() = v * lambda;
+    rpt.z() = lambda - 1.0;
+    
+    sfmData::Observations obsCopy = l.second.observations;
+    l.second.observations.clear();
+
+    Vec3 wpt = rRw.transpose() * rpt;
+
+    for (auto & obsIt : obsCopy)
+    {
+      IndexT curViewId = obsIt.first;
+      sfmData::View & curView = _sfmData.getView(curViewId);
+      Mat3 cRw = _sfmData.getPose(curView).getTransform().rotation();
+
+      Vec3 cpt = cRw * wpt;
+      Vec2 ppt = cpt.head(2) / cpt(2);
+  
+      const sfmData::Intrinsics::const_iterator iterIntrinsicCurrent = _sfmData.getIntrinsics().find(curView.getIntrinsicId());
+      const std::shared_ptr<camera::Pinhole> camCurrent = std::dynamic_pointer_cast<camera::Pinhole>(iterIntrinsicCurrent->second);
+
+      Vec2 ipt = camCurrent->cam2ima(camCurrent->addDistortion(ppt));
+      
+      Vec2 diff = ipt - obsIt.second.x;
+      if (diff.norm() < 1.0)
+      {
+        l.second.observations[obsIt.first] = obsIt.second;
+      }     
+    }
+  }
+}
+
+bool ReconstructionEngine_sequentialPanorama::bundleAdjustment() 
+{
+  ALICEVISION_LOG_INFO("Bundle adjustment start.");
+
+  auto chronoStart = std::chrono::steady_clock::now();
+
+  BundleAdjustmentSymbolicCeres::CeresOptions options;
+  BundleAdjustmentSymbolicCeres::ERefineOptions refineOptions = BundleAdjustmentSymbolicCeres::REFINE_ROTATION | BundleAdjustmentSymbolicCeres::REFINE_INTRINSICS_FOCAL |BundleAdjustmentSymbolicCeres::REFINE_STRUCTURE;
+
+
+  // enable Sparse solver and local strategy
+  if(_sfmData.getPoses().size() > 100)
+  {
+    options.setSparseBA();
+  }
+  else
+  {
+    options.setDenseBA();
+  }
+
+  BundleAdjustmentSymbolicCeres BA(options);
+
+  const bool success = BA.adjust(_sfmData, refineOptions);
+  if(!success)
+  {
+    return false;
+  }
+
+  removeOutliers();
+
+  return true;
+}
 
 bool ReconstructionEngine_sequentialPanorama::process()
 {
@@ -222,10 +455,8 @@ bool ReconstructionEngine_sequentialPanorama::process()
     return false;
   }
 
-  std::set<IndexT> availableViews;
-  std::set<IndexT> reconstructedViews;
-
   // List Views that support valid intrinsic (view that could be used for Essential matrix computation)
+  std::set<IndexT> availableViews;
   for(const auto& it : _sfmData.getViews())
   {
     std::shared_ptr<sfmData::View> v = it.second;
@@ -237,12 +468,13 @@ bool ReconstructionEngine_sequentialPanorama::process()
 
   Mat3 R;
   std::pair<IndexT, IndexT> firstPair;
-  bool ret = findNextPair(firstPair, R, reconstructedViews, availableViews);
+  bool ret = findFirstPair(firstPair, R, availableViews);
   if (!ret)
   {
     return false;
   }
 
+  std::set<IndexT> reconstructedViews;
   reconstructedViews.insert(firstPair.first);
   reconstructedViews.insert(firstPair.second);
   availableViews.erase(firstPair.first);
@@ -251,42 +483,55 @@ bool ReconstructionEngine_sequentialPanorama::process()
   //Build initial rotation
   const geometry::Pose3& initPose1 = geometry::Pose3(Mat3::Identity(), Vec3::Zero());
   const geometry::Pose3& initPose2 = geometry::Pose3(R, Vec3::Zero());
-  _sfmData.setPose(_sfmData.getView(firstPair.first), sfmData::CameraPose(initPose1));
+  _sfmData.setPose(_sfmData.getView(firstPair.first), sfmData::CameraPose(initPose1, true));
   _sfmData.setPose(_sfmData.getView(firstPair.second), sfmData::CameraPose(initPose2));
+
+  buildLandmarks(_sfmData.getView(firstPair.first));
+  buildLandmarks(_sfmData.getView(firstPair.second));
+
+  int pos = 0;
 
   while (1)
   {
-    Mat3 csecond_R_cfirst;
-    std::pair<IndexT, IndexT> nextPair;
-    bool ret = findNextPair(nextPair, csecond_R_cfirst, reconstructedViews, availableViews);
-    if (!ret)
+    IndexT nextImage = findNextBestImage(availableViews);
+    if (nextImage == UndefinedIndexT)
     {
-      return false;
+      break;
     }
 
-    //Store result in absolute
-    sfmData::CameraPose firstPose = _sfmData.getPose(_sfmData.getView(nextPair.first));
-    Mat3 cfirst_R_w = firstPose.getTransform().rotation();
-    Mat3 csecond_R_w = csecond_R_cfirst * cfirst_R_w;
-    const geometry::Pose3& secondPose = geometry::Pose3(csecond_R_w, Vec3::Zero());
-    _sfmData.setPose(_sfmData.getView(nextPair.second), sfmData::CameraPose(secondPose));
-
-    reconstructedViews.insert(nextPair.second);
-    availableViews.erase(nextPair.second);
-
-    std::cout << availableViews.size() << std::endl;
-
-    if (!bundleAdjustment(reconstructedViews)) 
+    sfmData::View v = _sfmData.getView(nextImage);
+    if (!estimateView(v))
     {
-      return false;
+      continue;
     }
+
+    reconstructedViews.insert(nextImage);
+    availableViews.erase(nextImage);
+
+    bundleAdjustment();
+    buildLandmarks(v);
+
+    pos++;
+
+  }  
+
+  bundleAdjustment();
+
+  sfmData::Poses & ps = _sfmData.getPoses();
+
+  Mat3 rRw = ps.begin()->second.getTransform().rotation();
+
+  for (auto & p : ps)
+  {
+    Mat3 cRw = p.second.getTransform().rotation();
+
+    Mat3 diff = cRw * rRw.transpose();
+    Eigen::AngleAxisd aa;
+    aa.fromRotationMatrix(diff);
+
+    std::cout << aa.axis().transpose() << std::endl;
   }
 
-  return true;
-}
-
-bool ReconstructionEngine_sequentialPanorama::bundleAdjustment(std::set<IndexT>& reconstructedViews) 
-{
   return true;
 }
 
