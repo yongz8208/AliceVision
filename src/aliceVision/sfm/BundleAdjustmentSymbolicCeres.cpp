@@ -65,7 +65,9 @@ public:
     SE3::Matrix T = cTr * rTo;
     geometry::Pose3 T_pose3(T.block<3,4>(0, 0));
 
-    Vec2 pt_est = _intrinsics->project(T_pose3, pt, true);
+    Vec4 pth = pt.homogeneous();
+
+    Vec2 pt_est = _intrinsics->project(T_pose3, pth, true);
     double scale = _measured.scale;
     if (scale < 1e-12) scale = 1.0;
     residuals[0] = (pt_est(0) - _measured.x(0)) / scale;
@@ -80,25 +82,26 @@ public:
     if (jacobians[0] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 2, 16, Eigen::RowMajor>> J(jacobians[0]);
 
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, pt) * getJacobian_AB_wrt_B<4, 4, 4>(cTr, rTo) * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), rTo);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, pth) * getJacobian_AB_wrt_B<4, 4, 4>(cTr, rTo) * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), rTo);
     }
 
     if (jacobians[1] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 2, 16, Eigen::RowMajor>> J(jacobians[1]);
       
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, pt) * getJacobian_AB_wrt_A<4, 4, 4>(cTr, rTo) * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), cTr);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, pth) * getJacobian_AB_wrt_A<4, 4, 4>(cTr, rTo) * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), cTr);
     }
 
     if (jacobians[2] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> J(jacobians[2], 2, params_size);
       
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtParams(T_pose3, pt);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtParams(T_pose3, pth);
     }
 
     if (jacobians[3] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J(jacobians[3]);
 
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPoint(T_pose3, pt);
+
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPoint(T_pose3, pth) * Eigen::Matrix<double, 4, 3>::Identity();
     }
 
     return true;
@@ -136,7 +139,6 @@ public:
     const Eigen::Map<const Vec3> pt(parameter_landmark);
 
     
-
     /*Update intrinsics object with estimated parameters*/
     size_t params_size = _intrinsics->getParams().size();
     std::vector<double> params;
@@ -145,11 +147,12 @@ public:
     }
     _intrinsics->updateFromParams(params);
 
-
     SE3::Matrix T = cTo * rTo.transpose();
     geometry::Pose3 T_pose3(T.block<3,4>(0, 0));
 
-    Vec2 pt_est = _intrinsics->project(T_pose3, pt, true);
+    Vec4 cartesianpt = _intrinsics->getCartesianfromSphericalCoordinates(pt);
+
+    Vec2 pt_est = _intrinsics->project(T_pose3, cartesianpt, true);
     double scale = _measured.scale;
     if (scale < 1e-12) scale = 1.0;
     residuals[0] = (pt_est(0) - _measured.x(0)) / scale;
@@ -165,25 +168,25 @@ public:
     if (jacobians[0] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 2, 16, Eigen::RowMajor>> J(jacobians[0]);
 
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, pt) * getJacobian_AB_wrt_A<4, 4, 4>(cTo, rTo.transpose()) * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), cTo);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, cartesianpt) * getJacobian_AB_wrt_A<4, 4, 4>(cTo, rTo.transpose()) * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), cTo);
     }
 
     if (jacobians[1] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 2, 16, Eigen::RowMajor>> J(jacobians[1]);
       
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, pt) * getJacobian_AB_wrt_B<4, 4, 4>(cTo, rTo.transpose()) * getJacobian_At_wrt_A<4, 4>() * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), rTo);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, cartesianpt) * getJacobian_AB_wrt_B<4, 4, 4>(cTo, rTo.transpose()) * getJacobian_At_wrt_A<4, 4>() * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), rTo);
     }
 
     if (jacobians[2] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> J(jacobians[2], 2, params_size);
       
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtParams(T_pose3, pt);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtParams(T_pose3, cartesianpt);
     }
 
     if (jacobians[3] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J(jacobians[3]);
 
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPoint(T_pose3, pt);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPoint(T_pose3, cartesianpt) * _intrinsics->getDerivativeCartesianfromSphericalCoordinates(pt);
     }
 
     return true;
@@ -221,24 +224,13 @@ public:
     }
     _intrinsics->updateFromParams(params);
 
-    /*double u = pt(0);
-    double v = pt(1);
-
-    double u2 = u * u;
-    double v2 = v * v;
-    double r2 = u2 + v2;
-
-    double lambda = 2.0 / (1.0 + r2);
-    Vec3 rpt;
-    rpt.x() = u * lambda;
-    rpt.y() = v * lambda;
-    rpt.z() = lambda - 1.0;*/
-    
-
+  
     SE3::Matrix T = SE3::Matrix::Identity();
     geometry::Pose3 T_pose3(T.block<3,4>(0, 0));
 
-    Vec2 pt_est = _intrinsics->project(T_pose3, pt, true);
+    Vec4 cartesianpt = _intrinsics->getCartesianfromSphericalCoordinates(pt.head(2));
+
+    Vec2 pt_est = _intrinsics->project(T_pose3, cartesianpt, true);
     double scale = _measured.scale;
     if (scale < 1e-12) scale = 1.0;
     residuals[0] = (pt_est(0) - _measured.x(0)) / scale;
@@ -253,24 +245,13 @@ public:
     if (jacobians[0] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> J(jacobians[0], 2, params_size);
       
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtParams(T_pose3, pt);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtParams(T_pose3, cartesianpt);
     }
 
     if (jacobians[1] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J(jacobians[1]);
 
-      /*Eigen::Matrix<double, 3, 1> d_rpt_d_lambda;
-      d_rpt_d_lambda(0, 0) = u;
-      d_rpt_d_lambda(1, 0) = v;
-      d_rpt_d_lambda(2, 0) = 1.0;
-
-      Eigen::Matrix<double, 1, 3> d_r2_d_landmark;
-      d_r2_d_landmark(0, 0) = 2.0 * u;
-      d_r2_d_landmark(0, 1) = 2.0 * v;
-      d_r2_d_landmark(0, 2) = 0.0;
-
-      double d_lambda_d_r2 = - 2.0 / ((1.0 + r2) * (1.0 + r2));*/
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPoint(T_pose3, pt);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPoint(T_pose3, cartesianpt) * _intrinsics->getDerivativeCartesianfromSphericalCoordinates(pt);
     }
 
     return true;
