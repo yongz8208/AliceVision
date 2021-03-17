@@ -224,11 +224,10 @@ public:
     }
     _intrinsics->updateFromParams(params);
 
-  
     SE3::Matrix T = SE3::Matrix::Identity();
     geometry::Pose3 T_pose3(T.block<3,4>(0, 0));
 
-    Vec4 cartesianpt = _intrinsics->getCartesianfromSphericalCoordinates(pt.head(2));
+    Vec4 cartesianpt = _intrinsics->getCartesianfromSphericalCoordinates(pt);
 
     Vec2 pt_est = _intrinsics->project(T_pose3, cartesianpt, true);
     double scale = _measured.scale;
@@ -239,7 +238,7 @@ public:
     if (jacobians == nullptr) {
       return true;
     }
-
+    
     Eigen::Matrix2d d_res_d_pt_est = Eigen::Matrix2d::Identity() / scale;
 
     if (jacobians[0] != nullptr) {
@@ -253,6 +252,7 @@ public:
 
       J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPoint(T_pose3, cartesianpt) * _intrinsics->getDerivativeCartesianfromSphericalCoordinates(pt);
     }
+
 
     return true;
   }
@@ -439,10 +439,8 @@ void BundleAdjustmentSymbolicCeres::setSolverOptions(ceres::Solver::Options& sol
 
   if(_ceresOptions.useParametersOrdering)
   {
-    solverOptions.linear_solver_ordering.reset(new ceres::ParameterBlockOrdering);
-
     // copy ParameterBlockOrdering
-    *(solverOptions.linear_solver_ordering) = _ceresOptions.linearSolverOrdering;
+    //solverOptions.linear_solver_ordering.reset(new ceres::ParameterBlockOrdering);
   }
 }
 
