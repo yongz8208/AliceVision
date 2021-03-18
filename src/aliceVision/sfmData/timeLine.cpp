@@ -10,7 +10,7 @@ bool TimeLine::addView(IndexT id, uint64_t timestamp)
     mes.timeCode = timestamp;
     mes.timedMeasureType = TimedMeasure::TimedMeasureTypeView;
 
-    _measures[id] = mes;
+    _measures[timestamp] = mes;
 
     return true;
 }

@@ -646,6 +646,47 @@ void BundleAdjustmentSymbolicCeres::addIntrinsicsToProblem(const sfmData::SfMDat
   }
 }
 
+void BundleAdjustmentSymbolicCeres::addMotionConstraintsToProblem(const sfmData::SfMData& sfmData, ERefineOptions refineOptions, ceres::Problem& problem)
+{
+  // set a LossFunction to be less penalized by false measurements.
+  // note: set it to NULL if you don't want use a lossFunction.
+  ceres::LossFunction* lossFunction = _ceresOptions.lossFunction.get();
+
+  for (const sfmData::TimeLine & item : sfmData.getTimeLines())
+  {
+    const std::map<uint64_t, sfmData::TimedMeasure> & measures = item.getMeasures();
+
+    if (measures.size() < 3) continue;
+
+    std::map<uint64_t, sfmData::TimedMeasure>::const_iterator it = measures.begin();
+    std::map<uint64_t, sfmData::TimedMeasure>::const_iterator it2 = std::next(it);
+    std::map<uint64_t, sfmData::TimedMeasure>::const_iterator it3 = std::next(it2);
+
+    while (it3 != measures.end())
+    {
+      IndexT vid1 = it->second.id;
+      IndexT vid2 = it2->second.id;
+      IndexT vid3 = it3->second.id;
+
+      const sfmData::View & v1 = sfmData.getView(vid1);
+      const sfmData::View & v2 = sfmData.getView(vid2);
+      const sfmData::View & v3 = sfmData.getView(vid3);
+
+      std::cout << v1.getPoseId() << " " << UndefinedIndexT <<  " ";
+      std::cout << v2.getPoseId() << " ";
+      std::cout << v3.getPoseId() << std::endl;
+
+      double* poseBlockPtr1 = _posesBlocks.at(v1.getPoseId()).data();
+      double* poseBlockPtr2 = _posesBlocks.at(v2.getPoseId()).data();
+      double* poseBlockPtr3 = _posesBlocks.at(v3.getPoseId()).data();
+
+      it++;
+      it2++;
+      it3++;
+    }
+  }
+}
+
 void BundleAdjustmentSymbolicCeres::addLandmarksToProblem(const sfmData::SfMData& sfmData, ERefineOptions refineOptions, ceres::Problem& problem)
 {
   const bool refineStructure = refineOptions & REFINE_STRUCTURE;
@@ -772,6 +813,9 @@ void BundleAdjustmentSymbolicCeres::createProblem(const sfmData::SfMData& sfmDat
 
   // add SfM landmarks to the Ceres problem
   addLandmarksToProblem(sfmData, refineOptions, problem);
+
+  // add Sfm motion constraint
+  addMotionConstraintsToProblem(sfmData, refineOptions, problem);
 }
 
 void BundleAdjustmentSymbolicCeres::updateFromSolution(sfmData::SfMData& sfmData, ERefineOptions refineOptions) const
