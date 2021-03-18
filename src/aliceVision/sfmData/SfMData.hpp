@@ -51,6 +51,9 @@ using Constraints2D = std::vector<Constraint2D>;
 ///Define a collection of rotation priors
 using RotationPriors = std::vector<RotationPrior>;
 
+///Define a collection of timelines
+using TimeLines = std::vector<TimeLine>;
+
 /**
  * @brief SfMData container
  * Store structure and camera properties
@@ -75,7 +78,7 @@ public:
   /// Rotation priors
   RotationPriors rotationpriors;
   /// TimeLine for sequenecs
-  TimeLine timeLine;
+  TimeLines timeLines;
 
   SfMData();
   ~SfMData();
@@ -146,8 +149,8 @@ public:
    * @brief Get control points
    * @return control points
    */
-  const TimeLine& getTimeLine() const {return timeLine;}
-  TimeLine& getTimeLine() {return timeLine;}
+  const TimeLines& getTimeLines() const {return timeLines;}
+  TimeLines& getTimeLines() {return timeLines;}
 
   /**
    * @brief Get relative features folder paths

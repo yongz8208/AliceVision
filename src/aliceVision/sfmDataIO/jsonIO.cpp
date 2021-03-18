@@ -223,7 +223,6 @@ void saveRig(const std::string& name, IndexT rigId, const sfmData::Rig& rig, bpt
   parentTree.push_back(std::make_pair(name, rigTree));
 }
 
-
 void loadRig(IndexT& rigId, sfmData::Rig& rig, bpt::ptree& rigTree)
 {
   rigId =  rigTree.get<IndexT>("rigId");
@@ -240,6 +239,41 @@ void loadRig(IndexT& rigId, sfmData::Rig& rig, bpt::ptree& rigTree)
     loadPose3("pose", subPose.pose, subPoseTree);
 
     rig.setSubPose(subPoseId++, subPose);
+  }
+}
+
+void saveTimeLine(const std::string& name, const sfmData::TimeLine& timeLine, bpt::ptree& parentTree)
+{
+  bpt::ptree timeLineTree;
+
+  for (const auto& timeLineElement : timeLine.getMeasures())
+  {
+    bpt::ptree timeLineElementTree;
+
+    timeLineElementTree.put("id", timeLineElement.second.id);
+    timeLineElementTree.put("time", timeLineElement.second.timeCode);
+    timeLineElementTree.put("type", (int)timeLineElement.second.timedMeasureType);
+
+    timeLineTree.push_back(std::make_pair("", timeLineElementTree));
+  }
+
+  parentTree.push_back(std::make_pair(name, timeLineTree));
+}
+
+void loadTimeLine(sfmData::TimeLine & timeLine, bpt::ptree& timeLineTree)
+{
+  for(bpt::ptree::value_type& timeLineElementNode : timeLineTree.get_child(""))
+  {
+    bpt::ptree& timeLineElementTree = timeLineElementNode.second;
+
+    sfmData::TimedMeasure::TimedMeasureType type = (sfmData::TimedMeasure::TimedMeasureType) timeLineElementTree.get<int>("type");
+    IndexT id = timeLineElementTree.get<IndexT>("id");
+    int64_t time = timeLineElementTree.get<int64_t>("time");
+
+    if (type == sfmData::TimedMeasure::TimedMeasureTypeView)
+    {
+      timeLine.addView(id, time);
+    }
   }
 }
 
@@ -413,6 +447,16 @@ bool saveJSON(const sfmData::SfMData& sfmData, const std::string& filename, ESfM
 
       fileTree.add_child("rigs", rigsTree);
     }
+  }
+
+  if (!sfmData.getTimeLines().empty())
+  {
+    bpt::ptree timeLinesTree;
+
+    for(const auto& timeLine : sfmData.getTimeLines())
+        saveTimeLine("", timeLine, timeLinesTree);
+
+    fileTree.add_child("timeLines", timeLinesTree);
   }
 
   // structure
@@ -600,6 +644,21 @@ bool loadJSON(sfmData::SfMData& sfmData, const std::string& filename, ESfMData p
       loadLandmark(landmarkId, landmark, landmarkNode.second, loadObservations, loadFeatures);
 
       structure.emplace(landmarkId, landmark);
+    }
+  }
+
+  // structure
+  if(fileTree.count("timeLines"))
+  {
+    sfmData::TimeLines& timelines = sfmData.getTimeLines();
+
+    for(bpt::ptree::value_type &timeLineNode : fileTree.get_child("timeLines"))
+    {
+      sfmData::TimeLine timeLine;
+
+      loadTimeLine(timeLine, timeLineNode.second);
+
+      timelines.push_back(timeLine);
     }
   }
 
