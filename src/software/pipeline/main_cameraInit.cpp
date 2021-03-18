@@ -6,6 +6,7 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <aliceVision/sfmData/SfMData.hpp>
+
 #include <aliceVision/sfmDataIO/jsonIO.hpp>
 #include <aliceVision/sfmDataIO/viewIO.hpp>
 #include <aliceVision/sensorDB/parseDatabase.hpp>
@@ -825,6 +826,69 @@ int aliceVision_main(int argc, char **argv)
       vitem.second->addMetadata("AliceVision:useWhiteBalance", (useInternalWhiteBalance)?"1":"0");
     }
   }
+
+  sfmData::TimeLine t;
+
+  //Check if we can build a timeline using the input
+  bool everyBodyTimestamped = true;
+  for (auto vitem : sfmData.getViews())
+  {
+    if (vitem.second->getMetadataDateTimestamp() < 0)
+    {
+      everyBodyTimestamped = false;
+      break;
+    }
+  }
+
+  if (everyBodyTimestamped)
+  {
+    ALICEVISION_LOG_INFO("Use timestamps to create a timeline");
+
+    for (auto vitem : sfmData.getViews())
+    {
+      int64_t timestamp = vitem.second->getMetadataDateTimestamp();
+      if (timestamp < 0)
+      {
+        t.addView(vitem.first, timestamp);
+      }
+    }
+  }
+  else 
+  {
+    bool everyBodyHasUniqueSequenceId = true;
+    std::set<int> ids;
+
+    for (auto vitem : sfmData.getViews())
+    {
+      int id = vitem.second->tryGetSequenceNumberFromFileName();
+      if (id < 0)
+      {
+        everyBodyHasUniqueSequenceId = false;
+        break;
+      }
+
+      if (ids.count(id) > 0)
+      {
+        everyBodyHasUniqueSequenceId = false;
+        break;
+      }
+
+      ids.insert(id);
+    }
+
+    if (everyBodyHasUniqueSequenceId)
+    {
+      ALICEVISION_LOG_INFO("Use ids to create an approximative timeline");
+
+      for (auto vitem : sfmData.getViews())
+      {
+        int id = vitem.second->tryGetSequenceNumberFromFileName();
+        t.addView(vitem.first, id);
+      }
+    }
+  }
+
+  sfmData.getTimeLines().push_back(t);
   
   // store SfMData views & intrinsic data
   if(!Save(sfmData, outputFilePath, ESfMData(VIEWS|INTRINSICS|EXTRINSICS)))
