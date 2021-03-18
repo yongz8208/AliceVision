@@ -304,10 +304,9 @@ int aliceVision_main(int argc, char **argv)
     }
   }
   
-  sfm::ReconstructionEngine_sequentialPanorama::Params panoramaParams;
-  sfm::ReconstructionEngine_sequentialPanorama sfmEngine(
+  sfm::ReconstructionEngine_sequentialSfM sfmEngine(
     sfmData,
-    panoramaParams,
+    sfmParams,
     extraInfoFolder,
     (fs::path(extraInfoFolder) / "sfm_log.html").string());
 
