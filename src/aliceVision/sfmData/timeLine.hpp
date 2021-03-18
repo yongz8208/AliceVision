@@ -21,6 +21,13 @@ struct TimedMeasure
 class TimeLine
 {
 public:
+    bool addView(IndexT id, uint64_t timestamp);
+
+    const std::map<uint64_t, TimedMeasure> & getMeasures() const
+    {
+        return _measures;
+    }
+    
 private:
     std::map<uint64_t, TimedMeasure> _measures;
 };
