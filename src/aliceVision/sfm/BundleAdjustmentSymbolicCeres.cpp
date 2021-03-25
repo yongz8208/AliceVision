@@ -263,6 +263,111 @@ private:
   bool _withRig;
 };
 
+class CostMotionConstantSpeed : public ceres::CostFunction {
+public:
+  CostMotionConstantSpeed() {
+
+    set_num_residuals(3);
+    
+    mutable_parameter_block_sizes()->push_back(16);
+    mutable_parameter_block_sizes()->push_back(16);
+    mutable_parameter_block_sizes()->push_back(16);
+  }
+
+  bool Evaluate(double const * const * parameters, double * residuals, double ** jacobians) const override {
+
+    const double * parameter_pose1 = parameters[0];
+    const double * parameter_pose2 = parameters[1];
+    const double * parameter_pose3 = parameters[2];
+
+    const Eigen::Map<const SE3::Matrix> cTo_1(parameter_pose1);
+    const Eigen::Map<const SE3::Matrix> cTo_2(parameter_pose2);
+    const Eigen::Map<const SE3::Matrix> cTo_3(parameter_pose3);
+
+    Eigen::Matrix3d cRo_1 = cTo_1.block<3, 3>(0, 0);
+    Eigen::Matrix3d cRo_2 = cTo_2.block<3, 3>(0, 0);
+    Eigen::Matrix3d cRo_3 = cTo_3.block<3, 3>(0, 0);
+
+    Eigen::Vector3d cto_1 = cTo_1.block<3, 1>(0, 3);
+    Eigen::Vector3d cto_2 = cTo_2.block<3, 1>(0, 3);
+    Eigen::Vector3d cto_3 = cTo_3.block<3, 1>(0, 3);
+
+    Eigen::Vector3d speed_diff = (cto_2 - cto_1) - (cto_3 - cto_2);
+
+    residuals[0] = speed_diff[0];
+    residuals[1] = speed_diff[1];
+    residuals[2] = speed_diff[2];
+
+    if (jacobians == nullptr) {
+      return true;
+    }
+
+    if (jacobians[0] != nullptr) {
+      Eigen::Map<Eigen::Matrix<double, 3, 16, Eigen::RowMajor>> J(jacobians[0]);
+
+      J.fill(0);
+
+      J.block<3, 3>(0, 12) = - Eigen::Matrix3d::Identity();
+    }
+
+    if (jacobians[1] != nullptr) {
+      Eigen::Map<Eigen::Matrix<double, 3, 16, Eigen::RowMajor>> J(jacobians[1]);
+
+      J.fill(0);
+
+      J.block<3, 3>(0, 12) = 2.0 * Eigen::Matrix3d::Identity();
+    }
+
+    if (jacobians[2] != nullptr) {
+      Eigen::Map<Eigen::Matrix<double, 3, 16, Eigen::RowMajor>> J(jacobians[2]);
+
+      J.fill(0);
+
+      J.block<3, 3>(0, 12) = - Eigen::Matrix3d::Identity();
+    }
+
+    return true;
+  }
+
+private:
+};
+
+void BundleAdjustmentSymbolicCeres::addPose(const sfmData::CameraPose& cameraPose, bool isConstant, SE3::Matrix & poseBlock, ceres::Problem& problem, bool refineTranslation, bool refineRotation)
+{
+  const Mat3& R = cameraPose.getTransform().rotation();
+  const Vec3& t = cameraPose.getTransform().translation();
+
+  poseBlock = SE3::Matrix::Identity();
+  poseBlock.block<3,3>(0, 0) = R;
+  poseBlock.block<3,1>(0, 3) = t;
+  double * poseBlockPtr = poseBlock.data();
+  problem.AddParameterBlock(poseBlockPtr, 16);
+
+
+  // add pose parameter to the all parameters blocks pointers list
+  _allParametersBlocks.push_back(poseBlockPtr);
+
+  // keep the camera extrinsics constants
+  if(cameraPose.isLocked() || isConstant || (!refineTranslation && !refineRotation))
+  {
+    // set the whole parameter block as constant.
+    _statistics.addState(EParameter::POSE, EParameterState::CONSTANT);
+    problem.SetParameterBlockConstant(poseBlockPtr);
+    return;
+  }
+
+  
+  if (refineRotation && refineTranslation)
+  {
+    problem.SetParameterization(poseBlockPtr, new SE3::LocalParameterization);
+  }
+  else {
+    ALICEVISION_LOG_ERROR("constant extrinsics not supported at this time");
+  }
+
+  _statistics.addState(EParameter::POSE, EParameterState::REFINED);
+}
+
 void BundleAdjustmentSymbolicCeres::CeresOptions::setDenseBA()
 {
   // default configuration use a DENSE representation
@@ -439,8 +544,12 @@ void BundleAdjustmentSymbolicCeres::setSolverOptions(ceres::Solver::Options& sol
 
   if(_ceresOptions.useParametersOrdering)
   {
+<<<<<<< HEAD
     // copy ParameterBlockOrdering
     //solverOptions.linear_solver_ordering.reset(new ceres::ParameterBlockOrdering);
+=======
+   
+>>>>>>> [sfm] use timeline only for created poses
   }
 }
 
@@ -449,6 +558,7 @@ void BundleAdjustmentSymbolicCeres::addExtrinsicsToProblem(const sfmData::SfMDat
   const bool refineTranslation = refineOptions & BundleAdjustment::REFINE_TRANSLATION;
   const bool refineRotation = refineOptions & BundleAdjustment::REFINE_ROTATION;
 
+<<<<<<< HEAD
   const auto addPose = [&](const sfmData::CameraPose& cameraPose, bool isConstant, SE3::Matrix & poseBlock)
   {
     const Mat3& R = cameraPose.getTransform().rotation();
@@ -479,6 +589,8 @@ void BundleAdjustmentSymbolicCeres::addExtrinsicsToProblem(const sfmData::SfMDat
     _statistics.addState(EParameter::POSE, EParameterState::REFINED);
   };
 
+=======
+>>>>>>> [sfm] use timeline only for created poses
   // setup poses data
   for(const auto& posePair : sfmData.getPoses())
   {
@@ -494,7 +606,7 @@ void BundleAdjustmentSymbolicCeres::addExtrinsicsToProblem(const sfmData::SfMDat
 
     const bool isConstant = (getPoseState(poseId) == EParameterState::CONSTANT);
 
-    addPose(pose, isConstant, _posesBlocks[poseId]);
+    addPose(pose, isConstant, _posesBlocks[poseId], problem, refineTranslation, refineRotation);
   }
 
   // setup sub-poses data
@@ -513,13 +625,13 @@ void BundleAdjustmentSymbolicCeres::addExtrinsicsToProblem(const sfmData::SfMDat
 
       const bool isConstant = (rigSubPose.status == sfmData::ERigSubPoseStatus::CONSTANT);
 
-      addPose(sfmData::CameraPose(rigSubPose.pose), isConstant, _rigBlocks[rigId][subPoseId]);
+      addPose(sfmData::CameraPose(rigSubPose.pose), isConstant, _rigBlocks[rigId][subPoseId], problem, refineTranslation, refineRotation);
     }
   }
 
 
   //Add default rig pose
-  addPose(sfmData::CameraPose(), true, _rigNull);
+  addPose(sfmData::CameraPose(), true, _rigNull, problem, refineTranslation, refineRotation);
 }
 
 void BundleAdjustmentSymbolicCeres::addIntrinsicsToProblem(const sfmData::SfMData& sfmData, BundleAdjustment::ERefineOptions refineOptions, ceres::Problem& problem)
@@ -652,6 +764,30 @@ void BundleAdjustmentSymbolicCeres::addMotionConstraintsToProblem(const sfmData:
   // note: set it to NULL if you don't want use a lossFunction.
   ceres::LossFunction* lossFunction = _ceresOptions.lossFunction.get();
 
+  const bool refineTranslation = refineOptions & BundleAdjustment::REFINE_TRANSLATION;
+  const bool refineRotation = refineOptions & BundleAdjustment::REFINE_ROTATION;
+
+
+  for (const sfmData::TimeLine & item : sfmData.getTimeLines())
+  {
+    const std::map<uint64_t, sfmData::TimedMeasure> & measures = item.getMeasures();
+    
+    for (auto it : measures)
+    {
+      const sfmData::View & view = sfmData.getView(it.second.id);
+
+
+      if (!sfmData.isPoseAndIntrinsicDefined(view.getPoseId())) 
+      {
+        continue;
+      }
+
+      const bool isConstant = (getPoseState(view.getPoseId()) == EParameterState::CONSTANT);
+      const sfmData::CameraPose& pose = sfmData.getPose(view);
+      addPose(pose, isConstant, _posesBlocks[view.getPoseId()], problem, refineTranslation, refineRotation);
+    }
+  }
+
   for (const sfmData::TimeLine & item : sfmData.getTimeLines())
   {
     const std::map<uint64_t, sfmData::TimedMeasure> & measures = item.getMeasures();
@@ -668,17 +804,24 @@ void BundleAdjustmentSymbolicCeres::addMotionConstraintsToProblem(const sfmData:
       IndexT vid2 = it2->second.id;
       IndexT vid3 = it3->second.id;
 
+      if (!sfmData.isPoseAndIntrinsicDefined(vid1) || !sfmData.isPoseAndIntrinsicDefined(vid2) || !sfmData.isPoseAndIntrinsicDefined(vid3)) 
+      {
+        it++;
+        it2++;
+        it3++;
+        continue;
+      }
+
       const sfmData::View & v1 = sfmData.getView(vid1);
       const sfmData::View & v2 = sfmData.getView(vid2);
       const sfmData::View & v3 = sfmData.getView(vid3);
 
-      std::cout << v1.getPoseId() << " " << UndefinedIndexT <<  " ";
-      std::cout << v2.getPoseId() << " ";
-      std::cout << v3.getPoseId() << std::endl;
-
       double* poseBlockPtr1 = _posesBlocks.at(v1.getPoseId()).data();
       double* poseBlockPtr2 = _posesBlocks.at(v2.getPoseId()).data();
       double* poseBlockPtr3 = _posesBlocks.at(v3.getPoseId()).data();
+
+      ceres::CostFunction* costFunction = new CostMotionConstantSpeed();
+      problem.AddResidualBlock(costFunction, lossFunction, poseBlockPtr1, poseBlockPtr2, poseBlockPtr3);
 
       it++;
       it2++;
@@ -815,7 +958,7 @@ void BundleAdjustmentSymbolicCeres::createProblem(const sfmData::SfMData& sfmDat
   addLandmarksToProblem(sfmData, refineOptions, problem);
 
   // add Sfm motion constraint
-  addMotionConstraintsToProblem(sfmData, refineOptions, problem);
+  //addMotionConstraintsToProblem(sfmData, refineOptions, problem);
 }
 
 void BundleAdjustmentSymbolicCeres::updateFromSolution(sfmData::SfMData& sfmData, ERefineOptions refineOptions) const

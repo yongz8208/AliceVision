@@ -612,6 +612,7 @@ bool ReconstructionEngine_sequentialSfM::bundleAdjustment(std::set<IndexT>& newR
     ALICEVISION_LOG_INFO("Start bundle adjustment iteration: " << iteration);
     auto chronoItStart = std::chrono::steady_clock::now();
 
+
     // bundle adjustment iteration
     {
       const bool success = BA.adjust(_sfmData, refineOptions);
