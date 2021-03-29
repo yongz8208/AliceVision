@@ -355,11 +355,10 @@ void BundleAdjustmentSymbolicCeres::addPose(const sfmData::CameraPose& cameraPos
     problem.SetParameterBlockConstant(poseBlockPtr);
     return;
   }
-
   
   if (refineRotation && refineTranslation)
   {
-    problem.SetParameterization(poseBlockPtr, new SE3::LocalParameterization);
+    problem.SetParameterization(poseBlockPtr, new SE3::LocalParameterization(refineRotation, refineTranslation));
   }
   else {
     ALICEVISION_LOG_ERROR("constant extrinsics not supported at this time");
@@ -544,12 +543,8 @@ void BundleAdjustmentSymbolicCeres::setSolverOptions(ceres::Solver::Options& sol
 
   if(_ceresOptions.useParametersOrdering)
   {
-<<<<<<< HEAD
     // copy ParameterBlockOrdering
     //solverOptions.linear_solver_ordering.reset(new ceres::ParameterBlockOrdering);
-=======
-   
->>>>>>> [sfm] use timeline only for created poses
   }
 }
 
@@ -558,39 +553,6 @@ void BundleAdjustmentSymbolicCeres::addExtrinsicsToProblem(const sfmData::SfMDat
   const bool refineTranslation = refineOptions & BundleAdjustment::REFINE_TRANSLATION;
   const bool refineRotation = refineOptions & BundleAdjustment::REFINE_ROTATION;
 
-<<<<<<< HEAD
-  const auto addPose = [&](const sfmData::CameraPose& cameraPose, bool isConstant, SE3::Matrix & poseBlock)
-  {
-    const Mat3& R = cameraPose.getTransform().rotation();
-    const Vec3& t = cameraPose.getTransform().translation();
-
-    poseBlock = SE3::Matrix::Identity();
-    poseBlock.block<3,3>(0, 0) = R;
-    poseBlock.block<3,1>(0, 3) = t;
-    double * poseBlockPtr = poseBlock.data();
-    problem.AddParameterBlock(poseBlockPtr, 16);
-
-
-    // add pose parameter to the all parameters blocks pointers list
-    _allParametersBlocks.push_back(poseBlockPtr);
-
-    // keep the camera extrinsics constants
-    if(cameraPose.isLocked() || isConstant || (!refineTranslation && !refineRotation))
-    {
-      // set the whole parameter block as constant.
-      _statistics.addState(EParameter::POSE, EParameterState::CONSTANT);
-      problem.SetParameterBlockConstant(poseBlockPtr);
-      return;
-    }
-
-    
-    problem.SetParameterization(poseBlockPtr, new SE3::LocalParameterization(refineRotation, refineTranslation));
-
-    _statistics.addState(EParameter::POSE, EParameterState::REFINED);
-  };
-
-=======
->>>>>>> [sfm] use timeline only for created poses
   // setup poses data
   for(const auto& posePair : sfmData.getPoses())
   {

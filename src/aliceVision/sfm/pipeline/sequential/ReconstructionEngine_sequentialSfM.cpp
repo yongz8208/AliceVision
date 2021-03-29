@@ -11,6 +11,7 @@
 #include <aliceVision/sfm/utils/statistics.hpp>
 #include <aliceVision/sfmDataIO/sfmDataIO.hpp>
 #include <aliceVision/sfm/BundleAdjustmentSymbolicCeres.hpp>
+#include <aliceVision/sfm/BundleAdjustmentCeres.hpp>
 #include <aliceVision/sfm/sfmFilters.hpp>
 #include <aliceVision/sfm/sfmStatistics.hpp>
 
@@ -546,7 +547,7 @@ bool ReconstructionEngine_sequentialSfM::bundleAdjustment(std::set<IndexT>& newR
   ALICEVISION_LOG_INFO("Bundle adjustment start.");
   auto chronoStart = std::chrono::steady_clock::now();
 
-  BundleAdjustmentSymbolicCeres::CeresOptions options;
+  BundleAdjustmentCeres::CeresOptions options;
   BundleAdjustment::ERefineOptions refineOptions = BundleAdjustment::REFINE_ROTATION | BundleAdjustment::REFINE_TRANSLATION | BundleAdjustment::REFINE_STRUCTURE;
 
   if(!isInitialPair && !_params.lockAllIntrinsics)
@@ -600,7 +601,7 @@ bool ReconstructionEngine_sequentialSfM::bundleAdjustment(std::set<IndexT>& newR
     }
   }
 
-  BundleAdjustmentSymbolicCeres BA(options);
+  BundleAdjustmentCeres BA(options);
 
   // give the local strategy graph is local strategy is enable
   if(enableLocalStrategy)
@@ -625,7 +626,7 @@ bool ReconstructionEngine_sequentialSfM::bundleAdjustment(std::set<IndexT>& newR
         _localStrategyGraph->saveIntrinsicsToHistory(_sfmData);
 
       // export and print information about the refinement
-      const BundleAdjustmentSymbolicCeres::Statistics& statistics = BA.getStatistics();
+      const BundleAdjustmentCeres::Statistics& statistics = BA.getStatistics();
       statistics.exportToFile(_outputFolder, "bundle_adjustment.csv");
       statistics.show();
     }
@@ -968,7 +969,7 @@ bool ReconstructionEngine_sequentialSfM::findNextBestViews(
 
   // Limit to a maximum number of cameras added to ensure that
   // we don't add too much data in one step without bundle adjustment.
-  static const std::size_t maxImagesPerGroup = 30;
+  static const std::size_t maxImagesPerGroup = 5;
 
   if(out_selectedViewIds.size() > maxImagesPerGroup)
     out_selectedViewIds.resize(maxImagesPerGroup);
@@ -1399,14 +1400,45 @@ bool ReconstructionEngine_sequentialSfM::computeResection(const IndexT viewId, R
   
   std::size_t cpt = 0;
   std::set<std::size_t>::const_iterator iterTrackId = resectionData.tracksId.begin();
+
   for (std::vector<FeatureId>::const_iterator iterfeatId = resectionData.featuresId.begin();
        iterfeatId != resectionData.featuresId.end();
        ++iterfeatId, ++iterTrackId, ++cpt)
   {
     const feature::EImageDescriberType descType = iterfeatId->first;
+
+    std::vector<Vec3> normals;
+    const sfmData::Landmark & l = _sfmData.getLandmarks().at(*iterTrackId);
+
+    /*For this specific landmark, compute the observations' "normals"*/
+    for (const auto & obs : l.observations)
+    {
+      IndexT viewIndex = obs.first;
+      if (!_sfmData.isPoseAndIntrinsicDefined(viewIndex))
+      {
+        continue;
+      }
+
+      const View & refView = _sfmData.getView(viewIndex);
+      const sfmData::CameraPose & refPose = _sfmData.getPose(refView);
+      const std::shared_ptr<camera::IntrinsicBase> & refCameraBase = _sfmData.getIntrinsicsharedPtr(refView.getIntrinsicId());
+      const std::shared_ptr<camera::IntrinsicsScaleOffsetDisto> & refCamera = std::dynamic_pointer_cast<camera::IntrinsicsScaleOffsetDisto>(refCameraBase);
+      if (!refCamera)
+      {
+        continue;
+      }
+
+      Vec3 pt = refCameraBase->backproject(obs.second.x);
+      Vec3 center = refPose.getTransform().center();
+      Vec3 dir = (center - pt).normalized();
+
+      normals.push_back(dir);
+    }
+
     resectionData.pt3D.col(cpt) = _sfmData.getLandmarks().at(*iterTrackId).X;
     resectionData.pt2D.col(cpt) = _featuresPerView->getFeatures(viewId, descType)[iterfeatId->second].coords().cast<double>();
     resectionData.vec_descType.at(cpt) = descType;
+    resectionData.normals.push_back(normals);
   }
   
   // C. Do the resectioning: compute the camera pose.

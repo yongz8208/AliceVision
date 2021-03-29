@@ -82,10 +82,10 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
       {
         // since K calibration matrix is known, compute only [R|t]
         using SolverT = multiview::resection::P3PSolver;
-        using KernelT = multiview::ResectionKernel_K<SolverT, multiview::resection::ProjectionDistanceSquaredError, multiview::UnnormalizerResection, robustEstimation::Mat34Model>;
+        using KernelT = multiview::ResectionKernel_K_normals<SolverT, multiview::resection::ProjectionDistanceSquaredError, multiview::UnnormalizerResection, robustEstimation::Mat34Model>;
 
         // otherwise we just pass the input points
-        const KernelT kernel = KernelT(hasDistortion ? pt2Dundistorted : resectionData.pt2D, resectionData.pt3D, pinholeCam->K());
+        const KernelT kernel = KernelT(hasDistortion ? pt2Dundistorted : resectionData.pt2D, resectionData.pt3D, resectionData.normals, pinholeCam->K());
 
         minimumSamples = kernel.getMinimumNbRequiredSamples();
 

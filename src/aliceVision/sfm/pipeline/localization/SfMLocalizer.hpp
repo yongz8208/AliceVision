@@ -30,6 +30,9 @@ struct ImageLocalizerMatchData
   /// 2xN matrix storing all 2D distorted points associated to 3D points (pt3D)
   /// found through the feature matching procedure.
   Mat pt2D;
+
+  /// Normals of the observations
+  std::vector<std::vector<Vec3>> normals;
   
   /// pt2D and pt3D have the same number of columns.
   /// Index mask for both pt3D and pt2D whose elements

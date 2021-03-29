@@ -151,10 +151,6 @@ public:
    */
   const TimeLines& getTimeLines() const {return timeLines;}
   TimeLines& getTimeLines() {return timeLines;}
-<<<<<<< HEAD
-
-=======
->>>>>>> [sfmData] add timeline and json
 
   /**
    * @brief Get relative features folder paths
