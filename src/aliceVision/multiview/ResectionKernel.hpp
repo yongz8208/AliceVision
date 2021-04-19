@@ -195,6 +195,8 @@ public:
   {
     KernelBase::errors(model, errors);
 
+
+    //Check Each 3D point
     Mat34 P = model.getMatrix();
     Mat3 R = P.block<3,3>(0, 0);
     Vec3 t = P.block<3,1>(0, 3);
@@ -205,7 +207,7 @@ public:
       Vec3 pt3d = _x3d.col(sample);
       Vec3 dir = (c - pt3d).normalized();
 
-
+      //Compare the estimated normal with all the other observations normals
       double minAngle = std::numeric_limits<double>::max();
       for (size_t index = 0; index < _normals[sample].size(); index++)
       {
@@ -215,11 +217,12 @@ public:
         minAngle = std::min(angle, minAngle);
       }
 
+      // If this observation is too much different from other normals, ignore ?
       if (_normals[sample].size() > 0)
       {
         if (minAngle > 40)
         {
-          //errors[sample] = std::numeric_limits<double>::max();
+          errors[sample] = std::numeric_limits<double>::max();
         }
       }
     }

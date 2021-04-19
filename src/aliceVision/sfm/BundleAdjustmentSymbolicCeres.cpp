@@ -532,11 +532,9 @@ void BundleAdjustmentSymbolicCeres::setSolverOptions(ceres::Solver::Options& sol
   solverOptions.preconditioner_type = _ceresOptions.preconditionerType;
   solverOptions.linear_solver_type = _ceresOptions.linearSolverType;
   solverOptions.sparse_linear_algebra_library_type = _ceresOptions.sparseLinearAlgebraLibraryType;
-  solverOptions.minimizer_progress_to_stdout = true;
+  solverOptions.minimizer_progress_to_stdout = _ceresOptions.verbose;
   solverOptions.logging_type = ceres::SILENT;
   solverOptions.num_threads = _ceresOptions.nbThreads;
-  solverOptions.max_num_iterations = 150;
-
 #if CERES_VERSION_MAJOR < 2
   solverOptions.num_linear_solver_threads = _ceresOptions.nbThreads;
 #endif
