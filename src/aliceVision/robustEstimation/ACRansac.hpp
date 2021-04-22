@@ -112,6 +112,12 @@ inline ErrorIndex bestNFA(int startIndex, //number of point required for estimat
                           const std::vector<float> &logc_k,
                           double multError = 1.0)
 {
+  double threshold = maxThreshold;
+  if (threshold == std::numeric_limits<double>::infinity())
+  {
+    threshold = std::numeric_limits<double>::max() - 10.0;
+  }
+
   ErrorIndex bestIndex(std::numeric_limits<double>::infinity(), startIndex);
   const size_t n = e.size();
   for(size_t k = startIndex + 1; k <= n && e[k - 1].first <= maxThreshold; ++k)

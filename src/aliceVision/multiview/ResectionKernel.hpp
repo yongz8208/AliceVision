@@ -220,7 +220,7 @@ public:
       // If this observation is too much different from other normals, ignore ?
       if (_normals[sample].size() > 0)
       {
-        if (minAngle > 40)
+        if (minAngle > 120.0)
         {
           errors[sample] = std::numeric_limits<double>::max();
         }
