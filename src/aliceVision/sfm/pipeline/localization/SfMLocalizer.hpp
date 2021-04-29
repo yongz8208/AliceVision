@@ -109,6 +109,25 @@ public:
                        robustEstimation::ERobustEstimator estimator = robustEstimation::ERobustEstimator::ACRANSAC);
 
   /**
+  * @brief Try to localize an image from known 2D-3D matches
+  *
+  * @param[in] imageSize the w,h image size
+  * @param[in] optionalIntrinsics camera intrinsic if known (else nullptr)
+  * @param[in,out] resectionData matching data (with filled 2D-3D correspondences).
+   * The 2D points are supposed to be the original distorted image points
+  * @param[out] pose found pose
+  * @param[in] estimator The type of robust estimator to use. The only supported 
+   * frameworks are ERobustEstimator::ACRANSAC and ERobustEstimator::LORANSAC.
+  * @return True if a putative pose has been estimated
+  */
+  static bool LocalizePureRotation(const Pair& imageSize,
+                       const camera::IntrinsicBase* optionalIntrinsics,
+                       std::mt19937 &randomNumberGenerator,
+                       ImageLocalizerMatchData& resectionData,
+                       geometry::Pose3& pose,
+                       robustEstimation::ERobustEstimator estimator = robustEstimation::ERobustEstimator::ACRANSAC);
+
+  /**
   * @brief Refine a pose according 2D-3D matching & camera model data
   *
   * @param[in,out] intrinsics Camera model

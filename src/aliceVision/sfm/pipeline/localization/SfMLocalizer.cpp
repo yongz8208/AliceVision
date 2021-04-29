@@ -17,6 +17,7 @@
 #include <aliceVision/multiview/resection/ResectionKernel.hpp>
 #include <aliceVision/multiview/resection/Resection6PSolver.hpp>
 #include <aliceVision/multiview/resection/ProjectionDistanceError.hpp>
+#include <aliceVision/multiview/relativePose/Rotation3PSolver.hpp>>
 #include <aliceVision/multiview/Unnormalizer.hpp>
 #include <aliceVision/multiview/ResectionKernel.hpp>
 
@@ -30,26 +31,14 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
                             geometry::Pose3& pose,
                             robustEstimation::ERobustEstimator estimator)
 {
-  // compute the camera pose (resectioning)
-  if (resectionData.referenceViews.size() > 0)
+  ImageLocalizerMatchData resectionDataRotation = resectionData;
+
+  if (!LocalizePureRotation(imageSize, optionalIntrinsics, randomNumberGenerator, resectionDataRotation, pose , estimator))
   {
-    if (resectionData.referenceViews.size() != resectionData.pt3D.cols())
-    {
-      ALICEVISION_LOG_ERROR("Invalid number of reference views");
-      return false;
-    }
+    resectionDataRotation.vec_inliers.clear();
   }
 
-  size_t countWithRV = 0;
-  for (const auto & item : resectionData.referenceViews)
-  {
-    if (item.hasReferenceView)
-    {
-      countWithRV++;
-    }
-  }
-
-  std::cout << countWithRV << std::endl;
+  std::cout << "------------" << resectionDataRotation.vec_inliers.size() << " " << resectionDataRotation.error_max << std::endl;
 
   Mat34 P;
   resectionData.vec_inliers.clear();
@@ -138,6 +127,8 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
 
         // update the upper bound precision of the model found by AC-RANSAC
         resectionData.error_max = ACRansacOut.first;
+
+        std::cout << "------------" << resectionData.vec_inliers.size() << " " << resectionData.error_max << std::endl;
         break;
       }
 
@@ -181,6 +172,129 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
       default:
         throw std::runtime_error("[SfMLocalizer::localize] Only ACRansac and LORansac are supported!");
     }
+  }
+
+  bool copy = false;
+  if (resectionDataRotation.vec_inliers.size() >= resectionData.vec_inliers.size())
+  {
+    
+    resectionData = resectionDataRotation;
+    copy = true;
+  }
+
+  const bool resection = matching::hasStrongSupport(resectionData.vec_inliers, resectionData.vec_descType, minimumSamples);
+
+  if(!resection)
+  {
+    ALICEVISION_LOG_DEBUG("Resection status is false:\n"
+                          "\t- resection_data.vec_inliers.size() = " << resectionData.vec_inliers.size() << "\n"
+                          "\t- minimumSamples = " << minimumSamples);
+  }
+
+  if(resection && !copy)
+  {
+    resectionData.projection_matrix = P;
+    Mat3 K, R;
+    Vec3 t;
+    KRt_from_P(P, &K, &R, &t);
+    pose = geometry::Pose3(R, -R.transpose() * t);
+  }
+
+  ALICEVISION_LOG_INFO("Robust Resection information:\n"
+    "\t- resection status: " << resection << "\n"
+    "\t- threshold (error max): " << resectionData.error_max << "\n"
+    "\t- # points used for resection: " << resectionData.pt2D.cols() << "\n"
+    "\t- # points validated by robust resection: " << resectionData.vec_inliers.size());
+
+  return resection;
+}
+
+bool SfMLocalizer::LocalizePureRotation(const Pair& imageSize,
+                            const camera::IntrinsicBase* optionalIntrinsics,
+                            std::mt19937 &randomNumberGenerator, 
+                            ImageLocalizerMatchData& resectionData,
+                            geometry::Pose3& pose,
+                            robustEstimation::ERobustEstimator estimator)
+{
+  // compute the camera pose (resectioning)
+  if (resectionData.referenceViews.size() > 0)
+  {
+    if (resectionData.referenceViews.size() != resectionData.pt3D.cols())
+    {
+      ALICEVISION_LOG_ERROR("Invalid number of reference views");
+      return false;
+    }
+  }
+
+  Mat34 P;
+  resectionData.vec_inliers.clear();
+
+  // setup the admissible upper bound residual error
+  const double precision =
+    resectionData.error_max == std::numeric_limits<double>::infinity() ?
+    std::numeric_limits<double>::infinity() :
+    Square(resectionData.error_max);
+
+  std::size_t minimumSamples = 0;
+  const camera::Pinhole* pinholeCam = dynamic_cast<const camera::Pinhole*>(optionalIntrinsics);
+
+  
+  // undistort the points if the camera has a distortion model
+  Mat pt2Dundistorted;
+  const bool hasDistortion = pinholeCam->hasDistortion();
+  if(hasDistortion)
+  {
+    const std::size_t numPts = resectionData.pt2D.cols();
+    pt2Dundistorted = Mat2X(2, numPts);
+    for(std::size_t iPoint = 0; iPoint < numPts; ++iPoint)
+    {
+      pt2Dundistorted.col(iPoint) = pinholeCam->get_ud_pixel(resectionData.pt2D.col(iPoint));
+    }
+  }
+
+  switch(estimator)
+  {
+    case robustEstimation::ERobustEstimator::ACRANSAC:
+    {
+      // since K calibration matrix is known, compute only [R
+      using SolverT = multiview::relativePose::Rotation3PSolver34;
+      using KernelT = multiview::ResectionKernel_K_normals<SolverT, multiview::resection::ProjectionDistanceSquaredError, multiview::UnnormalizerResection, robustEstimation::Mat34Model>;
+
+      Mat pt3D(3, resectionData.pt3D.cols());
+      for (int i = 0; i < resectionData.pt3D.cols(); i++)
+      {
+        Vec3 pt = resectionData.pt3D.col(i);
+        Mat4 rTo = resectionData.referenceViews[i].rTo;
+
+        Vec4 rpt;
+        rpt.x() = pt.x() / pt.z();
+        rpt.y() = pt.y() / pt.z();
+        rpt.z() = 1.0 / pt.z();
+        rpt.w() = 1.0;
+
+        Vec4 opt = rTo.inverse() * rpt;
+
+        pt3D.col(i) = opt.head(3);
+      }
+
+      // otherwise we just pass the input points
+      const KernelT kernel = KernelT(hasDistortion ? pt2Dundistorted : resectionData.pt2D, pt3D, resectionData.normals, pinholeCam->K());
+
+      minimumSamples = kernel.getMinimumNbRequiredSamples();
+
+      // robust estimation of the Projection matrix and its precision
+      robustEstimation::Mat34Model model;
+      const std::pair<double, double> ACRansacOut = robustEstimation::ACRANSAC(kernel, randomNumberGenerator, resectionData.vec_inliers, resectionData.max_iteration, &model, precision);
+
+      P = model.getMatrix();
+
+      // update the upper bound precision of the model found by AC-RANSAC
+      resectionData.error_max = ACRansacOut.first;
+      break;
+    }
+
+    default:
+      throw std::runtime_error("[SfMLocalizer::localizePuraRotation] Only ACRansac is supported!");
   }
 
   const bool resection = matching::hasStrongSupport(resectionData.vec_inliers, resectionData.vec_descType, minimumSamples);
