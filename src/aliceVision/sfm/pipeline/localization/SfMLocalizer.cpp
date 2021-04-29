@@ -31,6 +31,25 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
                             robustEstimation::ERobustEstimator estimator)
 {
   // compute the camera pose (resectioning)
+  if (resectionData.referenceViews.size() > 0)
+  {
+    if (resectionData.referenceViews.size() != resectionData.pt3D.cols())
+    {
+      ALICEVISION_LOG_ERROR("Invalid number of reference views");
+      return false;
+    }
+  }
+
+  size_t countWithRV = 0;
+  for (const auto & item : resectionData.referenceViews)
+  {
+    if (item.hasReferenceView)
+    {
+      countWithRV++;
+    }
+  }
+
+  std::cout << countWithRV << std::endl;
 
   Mat34 P;
   resectionData.vec_inliers.clear();
@@ -60,6 +79,8 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
     P = model.getMatrix();
     // update the upper bound precision of the model found by AC-RANSAC
     resectionData.error_max = ACRansacOut.first;
+
+    exit(-1);
   }
   else
   {
@@ -84,8 +105,28 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
         using SolverT = multiview::resection::P3PSolver;
         using KernelT = multiview::ResectionKernel_K_normals<SolverT, multiview::resection::ProjectionDistanceSquaredError, multiview::UnnormalizerResection, robustEstimation::Mat34Model>;
 
+
+
+        Mat pt3D(3, resectionData.pt3D.cols());
+        for (int i = 0; i < resectionData.pt3D.cols(); i++)
+        {
+          Vec3 pt = resectionData.pt3D.col(i);
+          Mat4 rTo = resectionData.referenceViews[i].rTo;
+
+          Vec4 rpt;
+          rpt.x() = pt.x() / pt.z();
+          rpt.y() = pt.y() / pt.z();
+          rpt.z() = 1.0 / pt.z();
+          rpt.w() = 1.0;
+
+
+          Vec4 opt = rTo.inverse() * rpt;
+
+          pt3D.col(i) = opt.head(3);
+        }
+
         // otherwise we just pass the input points
-        const KernelT kernel = KernelT(hasDistortion ? pt2Dundistorted : resectionData.pt2D, resectionData.pt3D, resectionData.normals, pinholeCam->K());
+        const KernelT kernel = KernelT(hasDistortion ? pt2Dundistorted : resectionData.pt2D, pt3D, resectionData.normals, pinholeCam->K());
 
         minimumSamples = kernel.getMinimumNbRequiredSamples();
 
@@ -179,11 +220,20 @@ bool SfMLocalizer::RefinePose(camera::IntrinsicBase* intrinsics,
   sfmData::SfMData tinyScene;
 
   // view
-  std::shared_ptr<sfmData::View> view = std::make_shared<sfmData::View>("", 0, 0, 0);
-  tinyScene.views.insert(std::make_pair(0, view));
+  std::shared_ptr<sfmData::View> cview = std::make_shared<sfmData::View>("", 0, 0, 0);
+  tinyScene.views.insert(std::make_pair(0, cview));
+  tinyScene.setPose(*cview, sfmData::CameraPose(pose));
 
-  // pose
-  tinyScene.setPose(*view, sfmData::CameraPose(pose));
+  for (int i = 0; i < matchingData.referenceViews.size(); i++)
+  {
+    std::shared_ptr<sfmData::View> view = std::make_shared<sfmData::View>("", i + 1, 0, i + 1);
+    tinyScene.views.insert(std::make_pair(i + 1, view));
+
+    geometry::Pose3 rp(matchingData.referenceViews[i].rTo.block<3, 4>(0, 0));
+
+    // pose
+    tinyScene.setPose(*view, sfmData::CameraPose(rp, true));
+  }
 
   // intrinsic (the shared_ptr does not take the ownership, will not release the input pointer)
   std::shared_ptr<camera::IntrinsicBase> localIntrinsics(intrinsics->clone());
@@ -196,6 +246,7 @@ bool SfMLocalizer::RefinePose(camera::IntrinsicBase* intrinsics,
     const std::size_t idx = matchingData.vec_inliers[i];
     sfmData::Landmark landmark;
     landmark.X = matchingData.pt3D.col(idx);
+    landmark.referenceView = idx + 1;
     landmark.observations[0] = sfmData::Observation(matchingData.pt2D.col(idx), UndefinedIndexT, unknownScale); // TODO-SCALE
     tinyScene.structure[i] = std::move(landmark);
   }
@@ -213,7 +264,7 @@ bool SfMLocalizer::RefinePose(camera::IntrinsicBase* intrinsics,
   if(!success)
     return false;
 
-  pose = tinyScene.getPose(*view).getTransform();
+  pose = tinyScene.getPose(*cview).getTransform();
 
   if(refineIntrinsic)
     intrinsics->assign(*localIntrinsics);

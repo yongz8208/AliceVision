@@ -51,7 +51,6 @@ public:
     const Eigen::Map<const SE3::Matrix> cTr(parameter_rig);
     const Eigen::Map<const Vec3> pt(parameter_landmark);
 
-    
 
     /*Update intrinsics object with estimated parameters*/
     size_t params_size = _intrinsics->getParams().size();
@@ -147,7 +146,8 @@ public:
     }
     _intrinsics->updateFromParams(params);
 
-    SE3::Matrix T = cTo * rTo.transpose();
+    SE3::Matrix oTr = SE3::inverse(rTo);
+    SE3::Matrix T = cTo * oTr;
     geometry::Pose3 T_pose3(T.block<3,4>(0, 0));
 
     Vec4 cartesianpt = _intrinsics->getCartesianfromSphericalCoordinates(pt);
@@ -168,13 +168,13 @@ public:
     if (jacobians[0] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 2, 16, Eigen::RowMajor>> J(jacobians[0]);
 
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, cartesianpt) * getJacobian_AB_wrt_A<4, 4, 4>(cTo, rTo.transpose()) * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), cTo);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, cartesianpt) * getJacobian_AB_wrt_A<4, 4, 4>(cTo, oTr) * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), cTo);
     }
 
     if (jacobians[1] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 2, 16, Eigen::RowMajor>> J(jacobians[1]);
       
-      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, cartesianpt) * getJacobian_AB_wrt_B<4, 4, 4>(cTo, rTo.transpose()) * getJacobian_At_wrt_A<4, 4>() * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), rTo);
+      J = d_res_d_pt_est * _intrinsics->getDerivativeProjectWrtPose(T_pose3, cartesianpt) * getJacobian_AB_wrt_B<4, 4, 4>(cTo, oTr) * SE3::d_inverse(rTo) * getJacobian_AB_wrt_A<4, 4, 4>(Eigen::Matrix4d::Identity(), rTo);
     }
 
     if (jacobians[2] != nullptr) {
@@ -352,6 +352,7 @@ void BundleAdjustmentSymbolicCeres::addPose(const sfmData::CameraPose& cameraPos
   {
     // set the whole parameter block as constant.
     _statistics.addState(EParameter::POSE, EParameterState::CONSTANT);
+
     problem.SetParameterBlockConstant(poseBlockPtr);
     return;
   }
@@ -1036,7 +1037,6 @@ bool BundleAdjustmentSymbolicCeres::adjust(sfmData::SfMData& sfmData, ERefineOpt
   ceres::Solve(options, &problem, &summary);
 
   // print summary
-  std::cout << "symbolic" << std::endl;
   if(_ceresOptions.summary) {
     ALICEVISION_LOG_INFO(summary.FullReport());
   }

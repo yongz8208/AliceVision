@@ -18,6 +18,12 @@
 namespace aliceVision {
 namespace sfm {
 
+struct ReferenceView
+{
+  bool hasReferenceView;
+  Mat4 rTo;
+};
+
 struct ImageLocalizerMatchData
 {
   /// 3x4 matrix represented the estimated camera pose.
@@ -39,6 +45,8 @@ struct ImageLocalizerMatchData
   /// represent the column indices of inliers in  pt2D 
   /// and pt3D.
   std::vector<std::size_t> vec_inliers;
+
+  std::vector<ReferenceView> referenceViews;
 
   std::vector<feature::EImageDescriberType> vec_descType;
   

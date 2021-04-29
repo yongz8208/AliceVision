@@ -227,6 +227,13 @@ public:
 
 private:
 
+  struct referenceview
+  {
+    bool hasReferenceView;
+    Mat4 rTo;
+  };
+
+
   struct ResectionData : ImageLocalizerMatchData
   {
     /// tracks index for resection

@@ -36,7 +36,16 @@ IndexT RemoveOutliers_PixelResidualError(sfmData::SfMData& sfmData,
       const geometry::Pose3 pose = sfmData.getPose(*view).getTransform();
       const camera::IntrinsicBase * intrinsic = sfmData.intrinsics.at(view->getIntrinsicId()).get();
 
-      Vec2 residual = intrinsic->residual(pose, iterTracks->second.X, itObs->second.x);
+      Vec3 rpt;
+      rpt.x() = iterTracks->second.X.x() / iterTracks->second.X.z(); 
+      rpt.y() = iterTracks->second.X.y() / iterTracks->second.X.z();
+      rpt.z() = 1.0 / iterTracks->second.X.z();
+
+      const sfmData::View & refView = sfmData.getView(iterTracks->second.referenceView);
+      const sfmData::CameraPose & refpose = sfmData.getPose(refView);
+      Vec3 opt = refpose.getTransform().inverse()(rpt);
+
+      Vec2 residual = intrinsic->residual(pose, opt, itObs->second.x);
       if(featureConstraint == EFeatureConstraint::SCALE && itObs->second.scale > 0.0)
       {
           // Apply the scale of the feature to get a residual value
@@ -44,7 +53,7 @@ IndexT RemoveOutliers_PixelResidualError(sfmData::SfMData& sfmData,
           residual /= itObs->second.scale;
       }
 
-      if((pose.depth(iterTracks->second.X) < 0) || (residual.norm() > dThresholdPixel))
+      if((pose.depth(opt) < 0) || (residual.norm() > dThresholdPixel))
       {
         ++outlier_count;
         itObs = observations.erase(itObs);

@@ -145,17 +145,11 @@ public:
   {
     double u = pt(0);
     double v = pt(1);
-
-    double u2 = u * u;
-    double v2 = v * v;
-    double r2 = u2 + v2;
-
-    double lambda = 2.0 / (1.0 + r2);
     
     Vec4 rpt;
-    rpt.x() = u * lambda;
-    rpt.y() = v * lambda;
-    rpt.z() = lambda - 1.0;
+    rpt.x() = pt(0);
+    rpt.y() = pt(1);
+    rpt.z() = 1.0;
     rpt.w() = pt(2);
 
     return rpt;
@@ -163,28 +157,11 @@ public:
 
   Eigen::Matrix<double, 4, 3> getDerivativeCartesianfromSphericalCoordinates(const Vec3 & pt)
   {
-    double u = pt(0);
-    double v = pt(1);
+  
+    Eigen::Matrix<double, 4, 3> ret = Eigen::Matrix<double, 4, 3>::Zero();
 
-    double u2 = u * u;
-    double v2 = v * v;
-    double r2 = u2 + v2;
-
-    Eigen::Matrix<double, 1, 3> d_r2_d_landmark;
-    d_r2_d_landmark(0, 0) = 2.0 * u;
-    d_r2_d_landmark(0, 1) = 2.0 * v;
-    d_r2_d_landmark(0, 2) = 0.0;
-
-    double d_lambda_d_r2 = - 2.0 / ((1.0 + r2) * (1.0 + r2));
-
-    Eigen::Matrix<double, 4, 1> d_rpt_d_lambda;
-    d_rpt_d_lambda(0, 0) = u;
-    d_rpt_d_lambda(1, 0) = v;
-    d_rpt_d_lambda(2, 0) = 1.0;
-    d_rpt_d_lambda(3, 0) = 0.0;
-
-    Eigen::Matrix<double, 4, 3> ret = d_rpt_d_lambda * d_lambda_d_r2 * d_r2_d_landmark;
-
+    ret(0, 0) = 1.0;
+    ret(1, 1) = 1.0;
     ret(3, 2) = 1.0;
 
     return ret;

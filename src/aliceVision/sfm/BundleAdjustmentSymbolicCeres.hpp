@@ -55,7 +55,7 @@ public:
     std::shared_ptr<ceres::LossFunction> lossFunction;
     unsigned int nbThreads;
     bool useParametersOrdering = true;
-    bool summary = true;
+    bool summary = false;
     bool verbose = true;
   };
 

@@ -135,7 +135,7 @@ bool ReconstructionEngine_sequentialSfM::process()
     elapsedTime = incrementalReconstruction();
   }
 
-  exportStatistics(elapsedTime);
+  //exportStatistics(elapsedTime);
 
   return !_sfmData.getPoses().empty();
 }
@@ -385,7 +385,7 @@ double ReconstructionEngine_sequentialSfM::incrementalReconstruction()
 
       triangulate(prevReconstructedViews, newReconstructedViews);
 
-      bundleAdjustment(newReconstructedViews);
+      //bundleAdjustment(newReconstructedViews);
 
       // scene logging for visual debug
       if((resectionId % 3) == 0)
@@ -423,6 +423,7 @@ double ReconstructionEngine_sequentialSfM::incrementalReconstruction()
       ALICEVISION_LOG_WARNING("Rig calibration finished:\n\t- # updated views: " << updatedViews.size());
     }
     ++globalIteration;
+
   }
   while(nbValidPoses != _sfmData.getPoses().size());
 
@@ -607,6 +608,7 @@ bool ReconstructionEngine_sequentialSfM::bundleAdjustment(std::set<IndexT>& newR
   if(enableLocalStrategy)
     BA.useLocalStrategyGraph(_localStrategyGraph);
 
+
   // perform BA until all point are under the given precision
   do
   {
@@ -619,7 +621,7 @@ bool ReconstructionEngine_sequentialSfM::bundleAdjustment(std::set<IndexT>& newR
       const bool success = BA.adjust(_sfmData, refineOptions);
 
       if(!success)
-        return false; // not usable solution
+        return false; // not usable solution*/
 
       // save the current focal lengths values (for each intrinsic) in the history
       if(_params.useLocalBundleAdjustment)
@@ -969,7 +971,7 @@ bool ReconstructionEngine_sequentialSfM::findNextBestViews(
 
   // Limit to a maximum number of cameras added to ensure that
   // we don't add too much data in one step without bundle adjustment.
-  static const std::size_t maxImagesPerGroup = 5;
+  static const std::size_t maxImagesPerGroup = 1;
 
   if(out_selectedViewIds.size() > maxImagesPerGroup)
     out_selectedViewIds.resize(maxImagesPerGroup);
@@ -1384,10 +1386,7 @@ bool ReconstructionEngine_sequentialSfM::computeResection(const IndexT viewId, R
   
   // Get back featId associated to a tracksID already reconstructed.
   // These 2D/3D associations will be used for the resection.
-  getFeatureIdInViewPerTrack(_map_tracks,
-                                             resectionData.tracksId,
-                                             viewId,
-                                             &resectionData.featuresId);
+  getFeatureIdInViewPerTrack(_map_tracks, resectionData.tracksId, viewId, &resectionData.featuresId);
   
   // Localize the image inside the SfM reconstruction
   Mat pt2D(2, resectionData.tracksId.size());
@@ -1402,19 +1401,18 @@ bool ReconstructionEngine_sequentialSfM::computeResection(const IndexT viewId, R
   std::set<std::size_t>::const_iterator iterTrackId = resectionData.tracksId.begin();
 
   for (std::vector<FeatureId>::const_iterator iterfeatId = resectionData.featuresId.begin();
-       iterfeatId != resectionData.featuresId.end();
-       ++iterfeatId, ++iterTrackId, ++cpt)
+       iterfeatId != resectionData.featuresId.end(); ++iterfeatId, ++iterTrackId)
   {
     const feature::EImageDescriberType descType = iterfeatId->first;
 
     std::vector<Vec3> normals;
     const sfmData::Landmark & l = _sfmData.getLandmarks().at(*iterTrackId);
-    if (l.referenceView != UndefinedIndexT)
-    {
-      continue;
-    }
 
-    /*For this specific landmark, compute the observations' "normals"*/
+    sfm::ReferenceView rview;
+    rview.hasReferenceView = true;
+    rview.rTo = _sfmData.getPose(_sfmData.getView(l.referenceView)).getTransform().getHomogeneous();
+
+
     for (const auto & obs : l.observations)
     {
       IndexT viewIndex = obs.first;
@@ -1422,7 +1420,7 @@ bool ReconstructionEngine_sequentialSfM::computeResection(const IndexT viewId, R
       {
         continue;
       }
-
+  
       const View & refView = _sfmData.getView(viewIndex);
       const sfmData::CameraPose & refPose = _sfmData.getPose(refView);
       const std::shared_ptr<camera::IntrinsicBase> & refCameraBase = _sfmData.getIntrinsicsharedPtr(refView.getIntrinsicId());
@@ -1438,11 +1436,14 @@ bool ReconstructionEngine_sequentialSfM::computeResection(const IndexT viewId, R
 
       normals.push_back(dir);
     }
+  
 
     pt3D.col(cpt) = _sfmData.getLandmarks().at(*iterTrackId).X;
     pt2D.col(cpt) = _featuresPerView->getFeatures(viewId, descType)[iterfeatId->second].coords().cast<double>();
     resectionData.vec_descType.at(cpt) = descType;
     resectionData.normals.push_back(normals);
+    resectionData.referenceViews.push_back(rview);
+    cpt++;
   }
   
   resectionData.pt3D.resize(3, cpt);
@@ -1548,9 +1549,18 @@ void ReconstructionEngine_sequentialSfM::updateScene(const IndexT viewIndex, con
   std::set<std::size_t>::const_iterator iterTrackId = resectionData.tracksId.begin();
   for (std::size_t i = 0; i < resectionData.pt2D.cols(); ++i, ++iterTrackId)
   {
+    resectionData.referenceViews[i];
     const Vec3 X = resectionData.pt3D.col(i);
+
+    Vec3 cpt;
+    cpt.x() = X.x() / X.z();
+    cpt.y() = X.y() / X.z();
+    cpt.z() = 1.0 / X.z();
+
+    Vec3 opt = (resectionData.referenceViews[i].rTo.inverse() * cpt.homogeneous()).head(3);
+
     const Vec2 x = resectionData.pt2D.col(i);
-    const Vec2 residual = resectionData.optionalIntrinsic->residual(resectionData.pose, X, x);
+    const Vec2 residual = resectionData.optionalIntrinsic->residual(resectionData.pose, opt, x);
     if (residual.norm() < resectionData.error_max &&
         resectionData.pose.depth(X) > 0)
     {
@@ -1650,11 +1660,11 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
   std::map<IndexT, std::set<IndexT>> mapTracksToTriangulate; // <trackId, observations> 
   getTracksToTriangulate(previousReconstructedViews, newReconstructedViews, mapTracksToTriangulate);
   
+  // Build tracks list
   std::vector<IndexT> setTracksId; // <trackId>
-  std::transform(mapTracksToTriangulate.begin(), mapTracksToTriangulate.end(),
-                 std::inserter(setTracksId, setTracksId.begin()),
-                 stl::RetrieveKey());
+  std::transform(mapTracksToTriangulate.begin(), mapTracksToTriangulate.end(), std::inserter(setTracksId, setTracksId.begin()), stl::RetrieveKey());
 
+  
 #pragma omp parallel for 
   for (int i = 0; i < setTracksId.size(); i++) // each track (already reconstructed or not)
   {
@@ -1664,16 +1674,18 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
     const track::Track& track = _map_tracks.at(trackId);
     std::set<IndexT>& observations = mapTracksToTriangulate.at(trackId); // all the posed views possessing the track
     
+    
     // The track needs to be seen by a min. number of views to be triangulated
     if (observations.size() < _params.minNbObservationsForTriangulation)
       continue;
     
     Vec3 X_euclidean = Vec3::Zero();
     std::set<IndexT> inliers;
-    std::set<IndexT> inliersR;
+    Vec2 centerPureRotation(0, 0);
     
     if (observations.size() == 2) 
     {
+      std::cout << "erroooooooooooooooo!!!!!!!!!!!!!" << std::endl;
       /* --------------------------------------------
        *    2 observations : triangulation using DLT
        * -------------------------------------------- */ 
@@ -1736,7 +1748,7 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
        * ------------------------------------------------------- */ 
      
       // -- Prepare:
-
+      std::vector<std::pair<IndexT, Vec2>> reprojected;
       Mat2X features(2, observations.size()); // undistorted 2D features (one per pose)
       std::vector<Mat34> Ps; // projective matrices (one per pose)
       {
@@ -1761,24 +1773,19 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
           const Vec2 x_ud = cam->get_ud_pixel(_featuresPerView->getFeatures(viewId, track.descType)[track.featPerView.at(viewId)].coords().cast<double>()); // undistorted 2D point
           
           //Test pure rotation model
-          if (i == 0)
+          /*if (i == 0)
           {
-            ref = x_ud;
             refCam = camPinHole;
             r_R_o = scene.getPose(*view).getTransform().rotation();
+            reprojected.push_back(std::make_pair(viewId, x_ud));
           }
           else 
           {
             Mat3 c_R_o = scene.getPose(*view).getTransform().rotation();
             Vec3 r_pt = r_R_o * c_R_o.transpose() * cam->ima2cam(x_ud).homogeneous();
-            Vec2 r_im = cam->cam2ima(r_pt.head(2) / r_pt(2));
-
-            if ((r_im - ref).norm() < 8.0)
-            {
-              inliersR.insert(viewId);
-            }
-          }
-          
+            Vec2 r_im = refCam->cam2ima(r_pt.head(2) / r_pt(2));
+            reprojected.push_back(std::make_pair(viewId, r_im));
+          }      */   
           
           features(0,i) = x_ud(0); 
           features(1,i) = x_ud(1);  
@@ -1786,44 +1793,79 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
           i++;
         }
       }
-      
-      // -- Triangulate: 
-      Vec4 X_homogeneous = Vec4::Zero();
-      std::vector<std::size_t> inliersIndex;
-      
-      std::mt19937 lrandom = _randomNumberGenerator;
-      multiview::TriangulateNViewLORANSAC(features, Ps, lrandom, &X_homogeneous, &inliersIndex, 8.0);
 
-      if (inliersR.size() > inliersIndex.size())
+      //Estimate parameters for pure rotation
+      /*for (const auto pair : reprojected)
+      {
+        centerPureRotation += pair.second;
+      }
+      centerPureRotation /= reprojected.size();
+
+      for (const auto pair : reprojected)
+      {
+        if ((pair.second - centerPureRotation).norm() < 8.0)
+        {
+          inliers.insert(pair.first);
+        }
+      }*/
+      
+      // Triangulate assuming non infinite point
+      std::vector<std::size_t> inliersIndex;
+      Vec4 X_homogeneous = Vec4::Zero();
+      std::mt19937 lrandom = _randomNumberGenerator;
+      multiview::TriangulateNViewLORANSAC(features, Ps, lrandom, &X_homogeneous, &inliersIndex, 8.0); 
+
+      /*if (inliers.size() >= inliersIndex.size())
       {
         isInfiniteTrack = true;
       }
-      
-      homogeneousToEuclidean(X_homogeneous, &X_euclidean);     
-      
-      // observations = {350, 380, 442} | inliersIndex = [0, 1] | inliers = {350, 380}
-      for (const auto & id : inliersIndex)
-        inliers.insert(*std::next(observations.begin(), id));
+      else*/
+      {
+        homogeneousToEuclidean(X_homogeneous, &X_euclidean);    
 
-      // -- Check:
-      //  - nb of cameras validing the track 
-      //  - angle (small angle leads imprecise triangulation)
-      //  - positive depth (chierality)
-      if (inliers.size() < _params.minNbObservationsForTriangulation ||
-          !checkAngles(X_euclidean, inliers, scene, _params.minAngleForTriangulation) ||
-          !checkChieralities(X_euclidean, inliers, scene))
-        isValidTrack = false;
+        inliers.clear();
+        for (const auto & id : inliersIndex)
+        {
+          inliers.insert(*std::next(observations.begin(), id));
+        }
+
+        // -- Check:
+        //  - nb of cameras validing the track 
+        //  - angle (small angle leads imprecise triangulation)
+        //  - positive depth (chierality)
+        if (inliers.size() < _params.minNbObservationsForTriangulation ||
+            !checkAngles(X_euclidean, inliers, scene, _params.minAngleForTriangulation) ||
+            !checkChieralities(X_euclidean, inliers, scene))
+          isValidTrack = false;
+      }
     }  
 
     // -- Add the tringulated point to the scene
     if (isValidTrack && !isInfiniteTrack)
     {
       Landmark landmark;
-      landmark.X = X_euclidean;
       landmark.descType = track.descType;
 
+
+      bool first = true;
       for (const IndexT & viewId : inliers) // add inliers as observations
       {
+        if (first)
+        {
+          const View & rview = scene.getView(viewId);
+          const CameraPose & cp = scene.getPose(rview);
+
+          Vec3 rpt = cp.getTransform()(X_euclidean);
+          
+          landmark.X.x() = rpt.x() / rpt.z();
+          landmark.X.y() = rpt.y() / rpt.z();
+          landmark.X.z() = 1.0 / rpt.z();
+
+          landmark.referenceView = viewId;
+
+          first = false;
+        }
+
         const Vec2 x = _featuresPerView->getFeatures(viewId, track.descType)[track.featPerView.at(viewId)].coords().cast<double>();
         const feature::PointFeature& p = _featuresPerView->getFeatures(viewId, track.descType)[track.featPerView.at(viewId)];
         const double scale = (_params.featureConstraint == EFeatureConstraint::BASIC) ? 0.0 : p.scale();
@@ -1836,7 +1878,7 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
     }
     else if (isInfiniteTrack)
     {
-      Landmark landmark;
+      /*Landmark landmark;
       landmark.descType = track.descType;
 
       bool first = true;
@@ -1850,7 +1892,7 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
       
         if (first)
         {
-          const Vec3 pt = cam->toUnitSphere(cam->removeDistortion(cam->ima2cam(coords)));
+          const Vec3 pt = cam->toUnitSphere(cam->ima2cam(centerPureRotation));
           double norm = pt.z() + pt.norm();
           landmark.X.x() = pt.x() / norm;
           landmark.X.y() = pt.y() / norm;
@@ -1867,7 +1909,7 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
       #pragma omp critical
       {
         scene.structure[trackId] = landmark;
-      }
+      }*/
     }
     else
     {
@@ -1962,14 +2004,24 @@ void ReconstructionEngine_sequentialSfM::triangulate_2Views(SfMData& scene, cons
 #pragma omp critical
           {
             Landmark& landmark = scene.structure.at(trackId);
+
+            Vec3 rpt;
+            rpt.x() = landmark.X.x() / landmark.X.z(); 
+            rpt.y() = landmark.X.y() / landmark.X.z();
+            rpt.z() = 1.0 / landmark.X.z();
+
+            const View & refView = scene.getView(landmark.referenceView);
+            const CameraPose & refpose = scene.getPose(refView);
+            Vec3 opt = refpose.getTransform().inverse()(rpt);
+
             if (landmark.observations.count(I) == 0)
             {
-              const Vec2 residual = camI->residual(poseI, landmark.X, xI);
+              const Vec2 residual = camI->residual(poseI, opt, xI);
               // TODO: scale in residual
               const auto& acThresholdIt = _map_ACThreshold.find(I);
               // TODO assert(acThresholdIt != _map_ACThreshold.end());
               const double acThreshold = (acThresholdIt != _map_ACThreshold.end()) ? acThresholdIt->second : 4.0;
-              if (poseI.depth(landmark.X) > 0 && residual.norm() < std::max(4.0, acThreshold))
+              if (poseI.depth(opt) > 0 && residual.norm() < std::max(4.0, acThreshold))
               {
                 const double scale = (_params.featureConstraint == EFeatureConstraint::BASIC) ? 0.0 : featI.scale();
                 landmark.observations[I] = Observation(xI, track.featPerView.at(I), scale);
@@ -1978,11 +2030,11 @@ void ReconstructionEngine_sequentialSfM::triangulate_2Views(SfMData& scene, cons
             }
             if (landmark.observations.count(J) == 0)
             {
-              const Vec2 residual = camJ->residual(poseJ, landmark.X, xJ);
+              const Vec2 residual = camJ->residual(poseJ, opt, xJ);
               const auto& acThresholdIt = _map_ACThreshold.find(J);
               // TODO assert(acThresholdIt != _map_ACThreshold.end());
               const double acThreshold = (acThresholdIt != _map_ACThreshold.end()) ? acThresholdIt->second : 4.0;
-              if (poseJ.depth(landmark.X) > 0 && residual.norm() < std::max(4.0, acThreshold))
+              if (poseJ.depth(opt) > 0 && residual.norm() < std::max(4.0, acThreshold))
               {
                 const double scale = (_params.featureConstraint == EFeatureConstraint::BASIC) ? 0.0 : featJ.scale();
                 landmark.observations[J] = Observation(xJ, track.featPerView.at(J), scale);
@@ -2033,7 +2085,14 @@ void ReconstructionEngine_sequentialSfM::triangulate_2Views(SfMData& scene, cons
             {
               // Add a new track
               Landmark & landmark = scene.structure[trackId];
-              landmark.X = X_euclidean;
+              
+              landmark.referenceView = I;
+
+              const Vec3 pt = poseI(X_euclidean);
+              landmark.X.x() = pt.x() / pt.z();
+              landmark.X.y() = pt.y() / pt.z();
+              landmark.X.z() = 1.0 / pt.z();
+
               landmark.descType = track.descType;
               
               const double scaleI = (_params.featureConstraint == EFeatureConstraint::BASIC) ? 0.0 : featI.scale();
