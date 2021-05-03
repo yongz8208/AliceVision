@@ -253,7 +253,7 @@ bool computeP3PPoses(const Mat3& featureVectors, const Mat3& worldPoints, Mat& s
 void P3PSolver::solve(const Mat& x2d, const Mat& x3d, std::vector<robustEstimation::Mat34Model>& models) const
 {
   assert(2 == x2d.rows());
-  assert(3 == x3d.rows());
+  assert(4 == x3d.rows());
   assert(x2d.cols() == x3d.cols());
 
   Mat3 R;
@@ -269,7 +269,7 @@ void P3PSolver::solve(const Mat& x2d, const Mat& x3d, std::vector<robustEstimati
   pt2D_3x3.col(1).normalize();
   pt2D_3x3.col(2).normalize();
 
-  Mat3 pt3D_3x3 = x3d;
+  Mat3 pt3D_3x3 = x3d.block<3, 3>(0, 0);
 
   if(computeP3PPoses(pt2D_3x3, pt3D_3x3, solutions))
   {

@@ -259,7 +259,6 @@ std::pair<double, double> ACRANSAC(const Kernel& kernel,
         }
       } //if(bACRansacMode)
     } //for(size_t k...
-    
     // Early exit test -> no meaningful model found after nIterReserve*2 iterations
     if (!bACRansacMode && iter > nIterReserve*2)
       break;

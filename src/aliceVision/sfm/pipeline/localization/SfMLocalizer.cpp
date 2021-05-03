@@ -31,15 +31,6 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
                             geometry::Pose3& pose,
                             robustEstimation::ERobustEstimator estimator)
 {
-  ImageLocalizerMatchData resectionDataRotation = resectionData;
-
-  if (!LocalizePureRotation(imageSize, optionalIntrinsics, randomNumberGenerator, resectionDataRotation, pose , estimator))
-  {
-    resectionDataRotation.vec_inliers.clear();
-  }
-
-  std::cout << "------------" << resectionDataRotation.vec_inliers.size() << " " << resectionDataRotation.error_max << std::endl;
-
   Mat34 P;
   resectionData.vec_inliers.clear();
 
@@ -68,8 +59,6 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
     P = model.getMatrix();
     // update the upper bound precision of the model found by AC-RANSAC
     resectionData.error_max = ACRansacOut.first;
-
-    exit(-1);
   }
   else
   {
@@ -96,7 +85,7 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
 
 
 
-        Mat pt3D(3, resectionData.pt3D.cols());
+        Mat pt3D(4, resectionData.pt3D.cols());
         for (int i = 0; i < resectionData.pt3D.cols(); i++)
         {
           Vec3 pt = resectionData.pt3D.col(i);
@@ -110,8 +99,7 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
 
 
           Vec4 opt = rTo.inverse() * rpt;
-
-          pt3D.col(i) = opt.head(3);
+          pt3D.col(i) = opt;
         }
 
         // otherwise we just pass the input points
@@ -121,6 +109,8 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
 
         // robust estimation of the Projection matrix and its precision
         robustEstimation::Mat34Model model;
+
+        std::cout << "ok1" << std::endl;
         const std::pair<double, double> ACRansacOut = robustEstimation::ACRANSAC(kernel, randomNumberGenerator, resectionData.vec_inliers, resectionData.max_iteration, &model, precision);
 
         P = model.getMatrix();
@@ -174,14 +164,6 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
     }
   }
 
-  bool copy = false;
-  if (resectionDataRotation.vec_inliers.size() >= resectionData.vec_inliers.size())
-  {
-    
-    resectionData = resectionDataRotation;
-    copy = true;
-  }
-
   const bool resection = matching::hasStrongSupport(resectionData.vec_inliers, resectionData.vec_descType, minimumSamples);
 
   if(!resection)
@@ -191,7 +173,7 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
                           "\t- minimumSamples = " << minimumSamples);
   }
 
-  if(resection && !copy)
+  if(resection)
   {
     resectionData.projection_matrix = P;
     Mat3 K, R;

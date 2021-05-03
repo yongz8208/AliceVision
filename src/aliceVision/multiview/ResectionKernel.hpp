@@ -173,7 +173,7 @@ public:
     , _x3d(x3d)
   {
     assert(2 == x2d.rows());
-    assert(3 == x3d.rows());
+    assert(4 == x3d.rows());
     assert(x2d.cols() == x3d.cols());
 
     // normalize points by inverse K
@@ -184,6 +184,11 @@ public:
   {
     // unnormalize model from the computed conditioning.
     model.setMatrix(_K * model.getMatrix());
+  }
+
+  double error(std::size_t sample, const ModelT_& model) const
+  {
+    return KernelBase::_errorEstimator.error(model, KernelBase::_x1.col(sample), KernelBase::_x2.col(sample).head(3));
   }
 
   /**
@@ -204,7 +209,7 @@ public:
 
     for(std::size_t sample = 0; sample < _x3d.cols(); ++sample)
     {
-      Vec3 pt3d = _x3d.col(sample);
+      Vec3 pt3d = _x3d.col(sample).head(3);
       Vec3 dir = (c - pt3d).normalized();
 
       //Compare the estimated normal with all the other observations normals
