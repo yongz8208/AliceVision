@@ -38,6 +38,11 @@ struct ProjectionDistanceSquaredError : public ISolverErrorResection<robustEstim
   {
     return (project(P.getMatrix(), p3d) - p2d).squaredNorm();
   }
+  
+  inline double errorHomogeneous(const robustEstimation::Mat34Model& P, const Vec2& p2d, const Vec4& p3d) const
+  {
+    return (project(P.getMatrix(), p3d) - p2d).squaredNorm();
+  }
 };
 
 }  // namespace resection

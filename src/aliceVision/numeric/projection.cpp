@@ -172,6 +172,11 @@ Vec2 project(const Mat34 &P, const Vec3 &X)
   return Vec3(P * X.homogeneous()).hnormalized();
 }
 
+Vec2 project(const Mat34 &P, const Vec4 &X)
+{
+  return Vec3(P * X).hnormalized();
+}
+
 void project(const Mat34 &P, const Mat3X &X, Mat2X *x)
 {
   assert(x != nullptr);

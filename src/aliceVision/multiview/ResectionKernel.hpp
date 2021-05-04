@@ -188,7 +188,7 @@ public:
 
   double error(std::size_t sample, const ModelT_& model) const
   {
-    return KernelBase::_errorEstimator.error(model, KernelBase::_x1.col(sample), KernelBase::_x2.col(sample).head(3));
+    return KernelBase::_errorEstimator.errorHomogeneous(model, KernelBase::_x1.col(sample), KernelBase::_x2.col(sample));
   }
 
   /**

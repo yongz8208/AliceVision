@@ -1773,7 +1773,7 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
           const Vec2 x_ud = cam->get_ud_pixel(_featuresPerView->getFeatures(viewId, track.descType)[track.featPerView.at(viewId)].coords().cast<double>()); // undistorted 2D point
           
           //Test pure rotation model
-          /*if (i == 0)
+          if (i == 0)
           {
             refCam = camPinHole;
             r_R_o = scene.getPose(*view).getTransform().rotation();
@@ -1785,7 +1785,7 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
             Vec3 r_pt = r_R_o * c_R_o.transpose() * cam->ima2cam(x_ud).homogeneous();
             Vec2 r_im = refCam->cam2ima(r_pt.head(2) / r_pt(2));
             reprojected.push_back(std::make_pair(viewId, r_im));
-          }      */   
+          }
           
           features(0,i) = x_ud(0); 
           features(1,i) = x_ud(1);  
@@ -1795,7 +1795,7 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
       }
 
       //Estimate parameters for pure rotation
-      /*for (const auto pair : reprojected)
+      for (const auto pair : reprojected)
       {
         centerPureRotation += pair.second;
       }
@@ -1807,7 +1807,9 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
         {
           inliers.insert(pair.first);
         }
-      }*/
+      }
+
+      
       
       // Triangulate assuming non infinite point
       std::vector<std::size_t> inliersIndex;
@@ -1815,11 +1817,13 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
       std::mt19937 lrandom = _randomNumberGenerator;
       multiview::TriangulateNViewLORANSAC(features, Ps, lrandom, &X_homogeneous, &inliersIndex, 8.0); 
 
-      /*if (inliers.size() >= inliersIndex.size())
+      
+
+      if (inliers.size() >= inliersIndex.size())
       {
         isInfiniteTrack = true;
       }
-      else*/
+      else
       {
         homogeneousToEuclidean(X_homogeneous, &X_euclidean);    
 
@@ -1841,7 +1845,7 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
     }  
 
     // -- Add the tringulated point to the scene
-    if (isValidTrack && !isInfiniteTrack)
+    if (isValidTrack)
     {
       Landmark landmark;
       landmark.descType = track.descType;
@@ -1855,11 +1859,22 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
           const View & rview = scene.getView(viewId);
           const CameraPose & cp = scene.getPose(rview);
 
-          Vec3 rpt = cp.getTransform()(X_euclidean);
-          
-          landmark.X.x() = rpt.x() / rpt.z();
-          landmark.X.y() = rpt.y() / rpt.z();
-          landmark.X.z() = 1.0 / rpt.z();
+          if (isInfiniteTrack)
+          {
+            std::shared_ptr<camera::IntrinsicBase> cam = scene.getIntrinsicsharedPtr(rview.getIntrinsicId());
+
+            const Vec2 pt = cam->ima2cam(centerPureRotation);
+            landmark.X.x() = pt.x();
+            landmark.X.y() = pt.y();
+            landmark.X.z() = 0.0;
+          }
+          else 
+          {
+            Vec3 rpt = cp.getTransform()(X_euclidean);
+            landmark.X.x() = rpt.x() / rpt.z();
+            landmark.X.y() = rpt.y() / rpt.z();
+            landmark.X.z() = 1.0 / rpt.z();
+          }
 
           landmark.referenceView = viewId;
 
@@ -1875,41 +1890,6 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
       {
         scene.structure[trackId] = landmark;
       }      
-    }
-    else if (isInfiniteTrack)
-    {
-      /*Landmark landmark;
-      landmark.descType = track.descType;
-
-      bool first = true;
-      for (const IndexT & viewId : inliers) // add inliers as observations
-      {
-        std::shared_ptr<View> view = scene.getViews().at(viewId);
-        std::shared_ptr<camera::IntrinsicBase> cam = scene.getIntrinsics().at(view->getIntrinsicId());
-
-        const feature::PointFeature& p = _featuresPerView->getFeatures(viewId, track.descType)[track.featPerView.at(viewId)];
-        const Vec2 coords = p.coords().cast<double>();
-      
-        if (first)
-        {
-          const Vec3 pt = cam->toUnitSphere(cam->ima2cam(centerPureRotation));
-          double norm = pt.z() + pt.norm();
-          landmark.X.x() = pt.x() / norm;
-          landmark.X.y() = pt.y() / norm;
-          landmark.X.z() = 0.0;
-
-          landmark.referenceView = view->getViewId();
-
-          first = false;
-        }
-
-        landmark.observations[viewId] = Observation(coords, track.featPerView.at(viewId), 1.0);
-      }
-
-      #pragma omp critical
-      {
-        scene.structure[trackId] = landmark;
-      }*/
     }
     else
     {

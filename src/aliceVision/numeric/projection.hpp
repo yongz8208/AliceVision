@@ -68,6 +68,11 @@ bool cheiralityTestAll(const Mat3 &R, const Vec3 &t, const Mat3X &X);
 Vec2 project(const Mat34& P, const Vec3& X);
 
 /**
+ * @brief Compute P*X. Transformed from homogeneous to euclidean coordinates.
+ */
+Vec2 project(const Mat34& P, const Vec4& X);
+
+/**
  * @brief Compute P*[X|1.0] for the X list of point (3D point).
  */
 void project(const Mat34& P, const Mat3X& X, Mat2X* x);
