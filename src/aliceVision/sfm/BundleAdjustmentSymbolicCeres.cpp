@@ -816,7 +816,16 @@ void BundleAdjustmentSymbolicCeres::addLandmarksToProblem(const sfmData::SfMData
     double* referencePoseBlockPtr = nullptr;
     if (landmark.referenceView != UndefinedIndexT)
     {
+      if (sfmData.viewsExists(landmark.referenceView) == false)
+      {
+        continue;
+      }
       const sfmData::View& referenceView = sfmData.getView(landmark.referenceView);
+
+      if (!sfmData.isPoseAndIntrinsicDefined(landmark.referenceView))
+      {
+        continue;
+      }
       referencePoseBlockPtr = _posesBlocks.at(referenceView.getPoseId()).data();
     }
 

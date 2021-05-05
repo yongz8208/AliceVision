@@ -31,6 +31,10 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
                             geometry::Pose3& pose,
                             robustEstimation::ERobustEstimator estimator)
 {
+  ImageLocalizerMatchData resectionDataR = resectionData;
+  geometry::Pose3 poseR = pose;
+  LocalizePureRotation(imageSize, optionalIntrinsics, randomNumberGenerator, resectionDataR, poseR, estimator);
+
   Mat34 P;
   resectionData.vec_inliers.clear();
 
@@ -92,10 +96,10 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
           Mat4 rTo = resectionData.referenceViews[i].rTo;
 
           Vec4 rpt;
-          rpt.x() = pt.x() / pt.z();
-          rpt.y() = pt.y() / pt.z();
-          rpt.z() = 1.0 / pt.z();
-          rpt.w() = 1.0;
+          rpt.x() = pt.x();
+          rpt.y() = pt.y();
+          rpt.z() = 1.0;
+          rpt.w() = pt.z();
 
 
           Vec4 opt = rTo.inverse() * rpt;
@@ -110,15 +114,14 @@ bool SfMLocalizer::Localize(const Pair& imageSize,
         // robust estimation of the Projection matrix and its precision
         robustEstimation::Mat34Model model;
 
-        std::cout << "ok1" << std::endl;
         const std::pair<double, double> ACRansacOut = robustEstimation::ACRANSAC(kernel, randomNumberGenerator, resectionData.vec_inliers, resectionData.max_iteration, &model, precision);
 
         P = model.getMatrix();
 
+        std::cout << ">>" <<  resectionData.vec_inliers.size() << " " << resectionDataR.vec_inliers.size() << std::endl;
+
         // update the upper bound precision of the model found by AC-RANSAC
         resectionData.error_max = ACRansacOut.first;
-
-        std::cout << "------------" << resectionData.vec_inliers.size() << " " << resectionData.error_max << std::endl;
         break;
       }
 
@@ -242,21 +245,21 @@ bool SfMLocalizer::LocalizePureRotation(const Pair& imageSize,
       using SolverT = multiview::relativePose::Rotation3PSolver34;
       using KernelT = multiview::ResectionKernel_K_normals<SolverT, multiview::resection::ProjectionDistanceSquaredError, multiview::UnnormalizerResection, robustEstimation::Mat34Model>;
 
-      Mat pt3D(3, resectionData.pt3D.cols());
+      Mat pt3D(4, resectionData.pt3D.cols());
       for (int i = 0; i < resectionData.pt3D.cols(); i++)
       {
         Vec3 pt = resectionData.pt3D.col(i);
         Mat4 rTo = resectionData.referenceViews[i].rTo;
 
         Vec4 rpt;
-        rpt.x() = pt.x() / pt.z();
-        rpt.y() = pt.y() / pt.z();
-        rpt.z() = 1.0 / pt.z();
-        rpt.w() = 1.0;
+        rpt.x() = pt.x();
+        rpt.y() = pt.y();
+        rpt.z() = 1.0;
+        rpt.w() = pt.z();
+
 
         Vec4 opt = rTo.inverse() * rpt;
-
-        pt3D.col(i) = opt.head(3);
+        pt3D.col(i) = opt;
       }
 
       // otherwise we just pass the input points

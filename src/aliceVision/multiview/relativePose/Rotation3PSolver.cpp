@@ -57,7 +57,7 @@ void Rotation3PSolver::solve(const Mat& p1, const Mat& p2, std::vector<robustEst
 void Rotation3PSolver34::solve(const Mat& p2d, const Mat& p3d, std::vector<robustEstimation::Mat34Model>& Rs) const
 {
     assert(2 == p2d.rows());
-    assert(3 == p3d.cols());
+    assert(4 == p3d.rows());
     assert(p2d.cols() == p3d.cols());
 
     Mat::Index n = p2d.cols();

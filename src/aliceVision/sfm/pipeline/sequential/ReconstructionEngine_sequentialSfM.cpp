@@ -385,7 +385,7 @@ double ReconstructionEngine_sequentialSfM::incrementalReconstruction()
 
       triangulate(prevReconstructedViews, newReconstructedViews);
 
-      //bundleAdjustment(newReconstructedViews);
+      bundleAdjustment(newReconstructedViews);
 
       // scene logging for visual debug
       if((resectionId % 3) == 0)
@@ -492,6 +492,7 @@ double ReconstructionEngine_sequentialSfM::incrementalReconstruction()
     ResectionData newResectionData;
     newResectionData.error_max = _params.localizerEstimatorError;
     newResectionData.max_iteration = _params.localizerEstimatorMaxIterations;
+
     const bool hasResected = computeResection(viewId, newResectionData);
 
 #pragma omp critical
@@ -633,10 +634,10 @@ bool ReconstructionEngine_sequentialSfM::bundleAdjustment(std::set<IndexT>& newR
       statistics.show();
     }
 
-    nbOutliers = removeOutliers();
+    //nbOutliers = removeOutliers();
 
     std::set<IndexT> removedViewsIdIteration;
-    eraseUnstablePosesAndObservations(this->_sfmData, _params.minPointsPerPose, _params.minTrackLength, &removedViewsIdIteration);
+    //eraseUnstablePosesAndObservations(this->_sfmData, _params.minPointsPerPose, _params.minTrackLength, &removedViewsIdIteration);
 
     for(IndexT v : removedViewsIdIteration)
       newReconstructedViews.erase(v);
@@ -1407,6 +1408,10 @@ bool ReconstructionEngine_sequentialSfM::computeResection(const IndexT viewId, R
 
     std::vector<Vec3> normals;
     const sfmData::Landmark & l = _sfmData.getLandmarks().at(*iterTrackId);
+    if (!_sfmData.isPoseAndIntrinsicDefined(l.referenceView))
+    {
+      continue;
+    }
 
     sfm::ReferenceView rview;
     rview.hasReferenceView = true;
@@ -1552,12 +1557,13 @@ void ReconstructionEngine_sequentialSfM::updateScene(const IndexT viewIndex, con
     resectionData.referenceViews[i];
     const Vec3 X = resectionData.pt3D.col(i);
 
-    Vec3 cpt;
-    cpt.x() = X.x() / X.z();
-    cpt.y() = X.y() / X.z();
-    cpt.z() = 1.0 / X.z();
+    Vec4 cpt;
+    cpt.x() = X.x();
+    cpt.y() = X.y();
+    cpt.z() = 1.0;
+    cpt.w() = X.z();
 
-    Vec3 opt = (resectionData.referenceViews[i].rTo.inverse() * cpt.homogeneous()).head(3);
+    Vec4 opt = resectionData.referenceViews[i].rTo.inverse() * cpt;
 
     const Vec2 x = resectionData.pt2D.col(i);
     const Vec2 residual = resectionData.optionalIntrinsic->residual(resectionData.pose, opt, x);
@@ -1650,7 +1656,7 @@ void ReconstructionEngine_sequentialSfM::getTracksToTriangulate(const std::set<I
   }
 }
 
-void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData& scene, const std::set<IndexT>& previousReconstructedViews, const std::set<IndexT>& newReconstructedViews)
+void ReconstructionEngine_sequentialSfM:: triangulate_multiViewsLORANSAC(SfMData& scene, const std::set<IndexT>& previousReconstructedViews, const std::set<IndexT>& newReconstructedViews)
 {
   ALICEVISION_LOG_DEBUG("Triangulating (mode: multi-view LO-RANSAC)... ");
 
@@ -1818,10 +1824,16 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
       multiview::TriangulateNViewLORANSAC(features, Ps, lrandom, &X_homogeneous, &inliersIndex, 8.0); 
 
       
-
       if (inliers.size() >= inliersIndex.size())
       {
-        isInfiniteTrack = true;
+        if (inliers.size() < _params.minNbObservationsForTriangulation)
+        {
+          isValidTrack = false;
+        }
+        else
+        {
+          isInfiniteTrack = true;
+        }
       }
       else
       {
@@ -1837,7 +1849,7 @@ void ReconstructionEngine_sequentialSfM::triangulate_multiViewsLORANSAC(SfMData&
         //  - nb of cameras validing the track 
         //  - angle (small angle leads imprecise triangulation)
         //  - positive depth (chierality)
-        if (inliers.size() < _params.minNbObservationsForTriangulation ||
+        if (inliers.size() < _params.minNbObservationsForTriangulation || 
             !checkAngles(X_euclidean, inliers, scene, _params.minAngleForTriangulation) ||
             !checkChieralities(X_euclidean, inliers, scene))
           isValidTrack = false;
@@ -1989,6 +2001,7 @@ void ReconstructionEngine_sequentialSfM::triangulate_2Views(SfMData& scene, cons
             rpt.x() = landmark.X.x() / landmark.X.z(); 
             rpt.y() = landmark.X.y() / landmark.X.z();
             rpt.z() = 1.0 / landmark.X.z();
+
 
             const View & refView = scene.getView(landmark.referenceView);
             const CameraPose & refpose = scene.getPose(refView);

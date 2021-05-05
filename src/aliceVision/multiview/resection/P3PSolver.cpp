@@ -257,7 +257,7 @@ void P3PSolver::solve(const Mat& x2d, const Mat& x3d, std::vector<robustEstimati
   assert(x2d.cols() == x3d.cols());
 
   Mat3 R;
-  Vec3 t;
+  Vec3 t; 
   Mat34 P;
 
   Mat solutions = Mat(3, 16);
@@ -269,7 +269,18 @@ void P3PSolver::solve(const Mat& x2d, const Mat& x3d, std::vector<robustEstimati
   pt2D_3x3.col(1).normalize();
   pt2D_3x3.col(2).normalize();
 
-  Mat3 pt3D_3x3 = x3d.block<3, 3>(0, 0);
+  Mat3 pt3D_3x3;
+  for (int i = 0; i < 3; i++)
+  {
+    if (std::abs(x3d(3, i)) <1e-6)
+    {
+      return;
+    }
+
+    pt3D_3x3(0, i) = x3d(0, i) / x3d(3, i);
+    pt3D_3x3(1, i) = x3d(1, i) / x3d(3, i);
+    pt3D_3x3(2, i) = 1.0 / x3d(3, i);
+  }
 
   if(computeP3PPoses(pt2D_3x3, pt3D_3x3, solutions))
   {
