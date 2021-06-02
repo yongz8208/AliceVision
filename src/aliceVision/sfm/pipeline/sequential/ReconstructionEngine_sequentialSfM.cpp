@@ -1143,7 +1143,7 @@ bool ReconstructionEngine_sequentialSfM::makeInitialPair3D(const Pair& currentPa
     {
       std::set<IndexT> newReconstructedViews = {static_cast<IndexT>(I), static_cast<IndexT>(J)};
       const bool isInitialPair = true;
-      const bool success = bundleAdjustment(newReconstructedViews, isInitialPair);
+      const bool success = true;// bundleAdjustment(newReconstructedViews, isInitialPair);
 
       if(!success)
       {
