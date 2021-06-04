@@ -599,6 +599,7 @@ int aliceVision_main(int argc, char* argv[])
     }
 
     std::vector<calibration::LineWithPoints> allLineWithPoints;
+    int originalHeight = cameraPinhole->h();
 
     for(const std::string& lensGridFilepath : lensGridFilepaths)
     {
@@ -819,6 +820,8 @@ int aliceVision_main(int argc, char* argv[])
         image::Image<image::RGBfColor> stmap = undistortSTMAP(offset, cameraPinhole, input);
         image::writeImage(stMapImagePath, stmap, image::EImageColorSpace::NO_CONVERSION);
     }
+
+    cameraPinhole->setHeight(originalHeight);
 
     ALICEVISION_LOG_INFO("Export SfmData: " << sfmOutputDataFilepath);
     if(!sfmDataIO::Save(sfmData, sfmOutputDataFilepath, sfmDataIO::ESfMData(sfmDataIO::ALL)))
