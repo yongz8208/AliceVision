@@ -326,15 +326,20 @@ void loadLandmark(IndexT& landmarkId, sfmData::Landmark& landmark, bpt::ptree& l
 bool saveDistortionPattern(const sfmData::DistortionPattern & distortionPattern, bpt::ptree& parentTree)
 {
   bpt::ptree dpatternTree;
+  dpatternTree.put("intrinsicId", distortionPattern.intrinsicId);
 
-  for(const auto& ppair : distortionPattern)
+  bpt::ptree dppTree;
+
+  for(const auto& ppair : distortionPattern.pointPairs)
   {
     bpt::ptree ppairTree;
     saveMatrix("distorted", ppair.distortedPoint, ppairTree);
     saveMatrix("undistorted", ppair.undistortedPoint, ppairTree);
 
-    dpatternTree.push_back(std::make_pair("", ppairTree));
+    dppTree.push_back(std::make_pair("", ppairTree));
   }
+
+  dpatternTree.push_back(std::make_pair("pointpairs", dppTree));
 
   parentTree.push_back(std::make_pair("distortionPattern", dpatternTree));
 
@@ -343,8 +348,9 @@ bool saveDistortionPattern(const sfmData::DistortionPattern & distortionPattern,
 
 bool loadDistortionPattern(sfmData::DistortionPattern& distortionPattern, bpt::ptree& dPatternTree)
 {
+  dPatternTree.get<IndexT>("intrinsicId");
 
-  for(bpt::ptree::value_type & ppairsNode : dPatternTree.get_child(""))
+  for(bpt::ptree::value_type & ppairsNode : dPatternTree.get_child("pointpairs"))
   {
     bpt::ptree& ppairsTree = ppairsNode.second;
 
@@ -352,8 +358,9 @@ bool loadDistortionPattern(sfmData::DistortionPattern& distortionPattern, bpt::p
     loadMatrix("distorted", pp.distortedPoint, ppairsTree);
     loadMatrix("undistorted", pp.undistortedPoint, ppairsTree);
 
-    distortionPattern.push_back(pp);
+    distortionPattern.pointPairs.push_back(pp);
   }
+
 
   return true;
 }

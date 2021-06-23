@@ -14,8 +14,8 @@
 #include <aliceVision/sfmData/View.hpp>
 #include <aliceVision/sfmData/Rig.hpp>
 #include <aliceVision/camera/camera.hpp>
+#include <aliceVision/sfmData/DistortionPattern.hpp>
 #include <aliceVision/types.hpp>
-#include <aliceVision/calibration/distortionEstimation.hpp>
 
 #include <stdexcept>
 #include <cassert>
@@ -52,7 +52,6 @@ using Constraints2D = std::vector<Constraint2D>;
 using RotationPriors = std::vector<RotationPrior>;
 
 ///Define a collection of distortion patterns
-using DistortionPattern = std::vector<calibration::PointPair>;
 using DistortionPatterns = std::vector<DistortionPattern>;
 
 /**

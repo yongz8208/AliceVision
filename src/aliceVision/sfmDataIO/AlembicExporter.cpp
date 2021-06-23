@@ -319,7 +319,7 @@ void AlembicExporter::addDistortionPatterns(const sfmData::DistortionPatterns & 
     OCompoundProperty pattern(userProps, name.str());
 
     std::vector<double> distorted, undistorted;
-    for (auto item : distortionPatterns[id])
+    for (auto item : distortionPatterns[id].pointPairs)
     {
       distorted.push_back(item.distortedPoint.x()); 
       distorted.push_back(item.distortedPoint.y()); 
@@ -327,6 +327,7 @@ void AlembicExporter::addDistortionPatterns(const sfmData::DistortionPatterns & 
       undistorted.push_back(item.undistortedPoint.y()); 
     }
 
+    OUInt32Property(pattern, "intrinsicId").set(distortionPatterns[id].intrinsicId);
     ODoubleArrayProperty(pattern, "distorted").set(distorted);
     ODoubleArrayProperty(pattern, "undistorted").set(undistorted);
   }

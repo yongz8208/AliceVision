@@ -858,6 +858,7 @@ void AlembicImporter::populateSfM(sfmData::SfMData& sfmdata, ESfMData flagsPart)
 
       Abc::ICompoundProperty prop(userProps, name.str());
       
+      Abc::IUInt32Property idProp(prop, "intrinsicId");
       Abc::IDoubleArrayProperty undistProp(prop, "undistorted");
       Abc::IDoubleArrayProperty distProp(prop, "distorted");
       Abc::IDoubleArrayProperty::sample_ptr_type undistorted;
@@ -874,6 +875,8 @@ void AlembicImporter::populateSfM(sfmData::SfMData& sfmdata, ESfMData flagsPart)
       const double * ptrUndist = undistorted->get();
       const double * ptrDist = distorted->get();
 
+      pattern.intrinsicId = idProp.getValue();
+
       for (int i = 0; i < distorted->size(); i += 2)
       {
         calibration::PointPair pp;
@@ -883,7 +886,7 @@ void AlembicImporter::populateSfM(sfmData::SfMData& sfmdata, ESfMData flagsPart)
         pp.distortedPoint.x() = ptrDist[i];
         pp.distortedPoint.y() = ptrDist[i + 1];
 
-        pattern.push_back(pp);
+        pattern.pointPairs.push_back(pp);
       }
 
       patterns.push_back(pattern);
