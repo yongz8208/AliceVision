@@ -10,6 +10,7 @@
 #include <aliceVision/alicevision_omp.hpp>
 #include <aliceVision/config.hpp>
 #include <aliceVision/camera/Equidistant.hpp>
+#include <aliceVision/calibration/distortionCosts.hpp>
 
 #include <boost/filesystem.hpp>
 
@@ -994,6 +995,34 @@ void BundleAdjustmentSymbolicCeres::addLandmarksToProblem(const sfmData::SfMData
   }
 }
 
+void BundleAdjustmentSymbolicCeres::addDistortionPatternsToProblem(const sfmData::SfMData& sfmData, ERefineOptions refineOptions, ceres::Problem& problem)
+{
+  const bool refineDistortion = refineOptions & REFINE_INTRINSICS_DISTORTION;
+
+  // set a LossFunction to be less penalized by false measurements.
+  // note: set it to NULL if you don't want use a lossFunction.
+  ceres::LossFunction* lossFunction = _ceresOptions.lossFunction.get();
+
+  if (!refineDistortion)
+  {
+    return;
+  }
+
+  for (const auto & pattern : sfmData.getDistortionPatterns())
+  {
+    std::shared_ptr<IntrinsicBase> intrinsic = sfmData.getIntrinsicsharedPtr(pattern.intrinsicId);
+    std::shared_ptr<Pinhole> pinhole = std::dynamic_pointer_cast<Pinhole>(intrinsic);
+
+    double* intrinsicBlockPtr = _intrinsicsBlocks.at(pattern.intrinsicId).data();
+
+    for (const calibration::PointPair & pt : pattern.pointPairs)
+    {
+        ceres::CostFunction * costFunction = new calibration::CostPointDirect(pinhole, pt.undistortedPoint, pt.distortedPoint);   
+        //problem.AddResidualBlock(costFunction, lossFunction, intrinsicBlockPtr);
+    }
+  }
+}
+
 
 void BundleAdjustmentSymbolicCeres::createProblem(const sfmData::SfMData& sfmData,
                                           ERefineOptions refineOptions,
@@ -1014,6 +1043,9 @@ void BundleAdjustmentSymbolicCeres::createProblem(const sfmData::SfMData& sfmDat
 
   // add SfM landmarks to the Ceres problem
   addLandmarksToProblem(sfmData, refineOptions, problem);
+
+  // add distortion patterns to the Ceres problem
+  addDistortionPatternsToProblem(sfmData, refineOptions, problem);
 }
 
 void BundleAdjustmentSymbolicCeres::updateFromSolution(sfmData::SfMData& sfmData, ERefineOptions refineOptions) const

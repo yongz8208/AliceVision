@@ -217,6 +217,14 @@ private:
   void addLandmarksToProblem(const sfmData::SfMData& sfmData, ERefineOptions refineOptions, ceres::Problem& problem);
 
   /**
+   * @brief Create a residual block for each point pairs of the distortion patterns according to the Ceres format
+   * @param[in] sfmData The input SfMData contains all the information about the reconstruction, notably the intrinsics
+   * @param[in] refineOptions The chosen refine flag
+   * @param[out] problem The Ceres bundle adjustement problem
+   */
+  void addDistortionPatternsToProblem(const sfmData::SfMData& sfmData, ERefineOptions refineOptions, ceres::Problem& problem);
+
+  /**
    * @brief Create the Ceres bundle adjustement problem with:
    *  - extrincics and intrinsics parameters blocks.
    *  - residuals blocks for each observation.

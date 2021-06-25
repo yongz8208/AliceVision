@@ -203,5 +203,73 @@ private:
     Vec2 _ptDistorted;
 };
 
+class CostPointDirect : public ceres::CostFunction
+{
+public:
+    CostPointDirect(std::shared_ptr<camera::Pinhole> & camera, const Vec2& ptUndistorted, const Vec2 &ptDistorted)
+        : _ptUndistorted(ptUndistorted)
+        , _ptDistorted(ptDistorted)
+        , _camera(camera)
+    {
+        set_num_residuals(2);
+
+        mutable_parameter_block_sizes()->push_back(camera->getParams().size());
+    }
+
+    bool Evaluate(double const* const* parameters, double* residuals, double** jacobians) const override
+    {
+        const double* parameter_intrinsics = parameters[0];
+        const double* parameter_scale = parameter_intrinsics + 0;
+        const double* parameter_center = parameter_intrinsics + 2;
+        const double* parameter_disto = parameter_intrinsics + 4;
+
+        const int distortionSize = _camera->getDistortionParams().size();
+        const size_t params_size = _camera->getParams().size();
+
+        //Read parameters and update camera
+        _camera->setScale(parameter_scale[0], parameter_scale[1]);
+        _camera->setOffset(parameter_center[0], parameter_center[1]);
+        std::vector<double> cameraDistortionParams = _camera->getDistortionParams();
+
+        for (int idParam = 0; idParam < distortionSize; idParam++)
+        {
+            cameraDistortionParams[idParam] = parameter_disto[idParam];
+        }
+        _camera->setDistortionParams(cameraDistortionParams);
+
+        //Estimate measure
+        const Vec2 cpt = _camera->ima2cam(_ptUndistorted);
+        const Vec2 distorted = _camera->addDistortion(cpt);
+        const Vec2 ipt = _camera->cam2ima(distorted);
+
+        const double w1 = std::max(std::abs(distorted.x()), std::abs(distorted.y()));
+        const double w = w1 * w1;
+
+        residuals[0] = w * (ipt.x() - _ptDistorted.x());
+        residuals[1] = w * (ipt.y() - _ptDistorted.y());
+
+        if(jacobians == nullptr)
+        {
+            return true;
+        }
+
+        if(jacobians[0] != nullptr)
+        {
+            Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> J(jacobians[0], 2, params_size);
+            
+            J.block<2, 2>(0, 0) = w * (_camera->getDerivativeIma2CamWrtScale(distorted) + _camera->getDerivativeCam2ImaWrtPoint() * _camera->getDerivativeAddDistoWrtPt(cpt) * _camera->getDerivativeIma2CamWrtScale(_ptUndistorted));
+            J.block<2, 2>(0, 2) = w * (_camera->getDerivativeCam2ImaWrtPrincipalPoint() + _camera->getDerivativeCam2ImaWrtPoint() * _camera->getDerivativeAddDistoWrtPt(cpt) * _camera->getDerivativeIma2CamWrtPrincipalPoint());
+            J.block(0, 4, 2, distortionSize) = w * _camera->getDerivativeCam2ImaWrtPoint() * _camera->getDerivativeAddDistoWrtDisto(cpt);
+        }
+
+        return true;
+    }
+
+private:
+    std::shared_ptr<camera::Pinhole> _camera;
+    Vec2 _ptUndistorted;
+    Vec2 _ptDistorted;
+};
+
 }//namespace calibration
 }//namespace aliceVision

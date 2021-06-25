@@ -348,7 +348,7 @@ bool saveDistortionPattern(const sfmData::DistortionPattern & distortionPattern,
 
 bool loadDistortionPattern(sfmData::DistortionPattern& distortionPattern, bpt::ptree& dPatternTree)
 {
-  dPatternTree.get<IndexT>("intrinsicId");
+  distortionPattern.intrinsicId = dPatternTree.get<IndexT>("intrinsicId");
 
   for(bpt::ptree::value_type & ppairsNode : dPatternTree.get_child("pointpairs"))
   {
