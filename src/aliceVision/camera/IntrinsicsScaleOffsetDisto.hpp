@@ -113,7 +113,7 @@ public:
   // Data wrapper for non linear optimization (get data)
   std::vector<double> getParams() const override
   {
-    std::vector<double> params = {_scale(0), _scale(1), _offset(0), _offset(1)};
+    std::vector<double> params = {_scale(0), _scale(1), _principalPointOffset(0), _principalPointOffset(1)};
 
     if (hasDistortion())
     {
@@ -143,8 +143,8 @@ public:
 
     _scale(0) = params[0];
     _scale(1) = params[1];
-    _offset(0) = params[2];
-    _offset(1) = params[3];
+    _principalPointOffset(0) = params[2];
+    _principalPointOffset(1) = params[3];
 
     setDistortionParams({params.begin() + 4, params.end()});
 
@@ -207,8 +207,29 @@ public:
 
   ~IntrinsicsScaleOffsetDisto() override = default;
 
+  /**
+   * @brief lock the distortion
+   * @param lock is the distortion locked
+   */
+  void setLockDistortion(bool lock) 
+  {
+    _lockDistortion = lock;
+  }
+
+  /**
+   * @brief get the lock on the distortion
+   * @return is the distortion locked
+   */
+  bool getLockDistortion()
+  {
+    return _lockDistortion;
+  }
+
+
 protected:
   std::shared_ptr<Distortion> _pDistortion;
+
+  bool _lockDistortion{false};
 };
 
 } // namespace camera
