@@ -247,6 +247,21 @@ alicevision_add_software(aliceVision_utils_split360Images
         Boost::filesystem
 )
 
+# Split double fisheye
+alicevision_add_software(aliceVision_utils_splitDoubleFisheye
+  SOURCE main_splitDoubleFisheye.cpp
+  FOLDER ${FOLDER_SOFTWARE_UTILS}
+  LINKS aliceVision_system
+        aliceVision_numeric
+        aliceVision_image
+        aliceVision_panorama
+        aliceVision_sfmData
+        aliceVision_sfmDataIO
+        ${OPENIMAGEIO_LIBRARIES}
+        Boost::program_options
+        Boost::filesystem
+)
+
 
 # Project 180° fisheye images into equirectangular
 alicevision_add_software(aliceVision_utils_fisheyeProjection
