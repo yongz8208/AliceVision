@@ -198,7 +198,11 @@ int aliceVision_main(int argc, char** argv)
 #pragma omp parallel for num_threads(nbThreads)
   for(int itView = 0; itView < views.size(); itView++)
   {
-    toErase.push_back(views[itView]->getViewId());
+    #pragma omp critical
+    {
+      toErase.push_back(views[itView]->getViewId());
+    }
+    
     const std::string& imagePath = views[itView]->getImagePath();
 
     std::array<std::string, 2> pathOutputs;
@@ -224,7 +228,7 @@ int aliceVision_main(int argc, char** argv)
       std::shared_ptr<sfmData::View> vr = std::make_shared<sfmData::View>(v);
       vr->setViewId(itView * 2 + 1);
       vr->setRigAndSubPoseId(0, 1);
-      vr->setImagePath(pathOutputs[0]);
+      vr->setImagePath(pathOutputs[1]);
       vr->setWidth(views[itView]->getWidth() / 2);
       vr->setHeight(views[itView]->getHeight());
       vr->setIntrinsicId(1);

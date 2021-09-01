@@ -1003,30 +1003,30 @@ int main(int argc, char * argv[])
 
     if(useFisheye && estimateFisheyeCircle)
     {
-      
-      if(sfmData.getIntrinsics().size() != 1)
+      for (auto itIntrinsic : sfmData.getIntrinsics())
       {
-        ALICEVISION_LOG_ERROR("Only one intrinsic allowed (" << sfmData.getIntrinsics().size() << " found)");
-        return EXIT_FAILURE;
-      }
+        IndexT intrinsicId = itIntrinsic.first;
+        std::shared_ptr<camera::IntrinsicBase> intrinsic = itIntrinsic.second;
 
-      std::shared_ptr<camera::IntrinsicBase> intrinsic = sfmData.getIntrinsics().begin()->second;
-      if(intrinsic == nullptr)
-      {
-        ALICEVISION_LOG_ERROR("No valid intrinsic");
-        return EXIT_FAILURE;
-      }
+        if (!camera::isEquidistant(intrinsic->getType()))
+        {
+          continue; 
+        }
 
-      if(camera::isEquidistant(intrinsic->getType()))
-      { 
         CircleDetector detector(intrinsic->w(), intrinsic->h(), 256);
         if(debugFisheyeCircleEstimation)
         {
             boost::filesystem::path path(sfmOutputDataFilepath);
             detector.setDebugDirectory(path.parent_path().string());
         }
+
         for(auto & v : sfmData.getViews())
         {
+          if (v.second->getIntrinsicId() != intrinsicId)
+          {
+            continue;
+          }
+
           // Read original image
           image::Image<float> grayscale;
           image::readImage(v.second->getImagePath(), grayscale, image::EImageColorSpace::SRGB);
@@ -1057,29 +1057,24 @@ int main(int argc, char * argv[])
         ALICEVISION_LOG_INFO("Computing automatic fisheye circle");
         ALICEVISION_LOG_INFO(" * Center Offset: " << fisheyeCenterOffset);
         ALICEVISION_LOG_INFO(" * Radius: " << fisheyeRadius);
-      }
-    }
 
-    sfmData::Intrinsics & intrinsics = sfmData.getIntrinsics();
-    for (auto & intrinsic_pair : intrinsics)
-    {
-      std::shared_ptr<camera::IntrinsicBase> intrinsic = intrinsic_pair.second;
-      std::shared_ptr<camera::EquiDistant> equidistant = std::dynamic_pointer_cast<camera::EquiDistant>(intrinsic);
-      if (equidistant == nullptr)
-      {
-        // skip non equidistant cameras
-        continue;
-      }
-      ALICEVISION_LOG_INFO("Update EquiDistant camera intrinsic " << intrinsic_pair.first << " with center and offset.");
+        std::shared_ptr<camera::EquiDistant> equidistant = std::dynamic_pointer_cast<camera::EquiDistant>(intrinsic);
+        
+        if (equidistant == nullptr)
+        {
+          // skip non equidistant cameras
+          continue;
+        }
 
-      equidistant->setCircleCenterX(double(equidistant->w()) / 2.0 + fisheyeCenterOffset(0));
-      equidistant->setCircleCenterY(double(equidistant->h()) / 2.0 + fisheyeCenterOffset(1));
-
-      equidistant->setCircleRadius(fisheyeRadius / 100.0 * 0.5 * std::min(double(equidistant->w()),double(equidistant->h())));
-      ++equidistantCount;
+        ALICEVISION_LOG_INFO("Update EquiDistant camera intrinsic " << intrinsicId << " with center and offset.");
+        equidistant->setCircleCenterX(double(equidistant->w()) / 2.0 + fisheyeCenterOffset(0));
+        equidistant->setCircleCenterY(double(equidistant->h()) / 2.0 + fisheyeCenterOffset(1));
+        equidistant->setCircleRadius(fisheyeRadius / 100.0 * 0.5 * std::min(double(equidistant->w()),double(equidistant->h())));
+        ++equidistantCount;
     }
 
     ALICEVISION_LOG_INFO(equidistantCount << " equidistant camera intrinsics have been updated");
+    }
   }
 
   ALICEVISION_LOG_INFO("Export SfM: " << sfmOutputDataFilepath);
