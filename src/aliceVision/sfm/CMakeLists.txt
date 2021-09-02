@@ -6,6 +6,7 @@ set(sfm_files_headers
   pipeline/global/ReconstructionEngine_globalSfM.hpp
   pipeline/global/reindexGlobalSfM.hpp
   pipeline/global/TranslationTripletKernelACRansac.hpp
+  pipeline/global/ReconstructionEngine_globalRotation.hpp
   pipeline/localization/SfMLocalizer.hpp
   pipeline/localization/SfMLocalizationSingle3DTrackObservationDatabase.hpp
   pipeline/sequential/ReconstructionEngine_sequentialSfM.hpp
@@ -39,6 +40,7 @@ set(sfm_files_sources
   pipeline/global/GlobalSfMRotationAveragingSolver.cpp
   pipeline/global/GlobalSfMTranslationAveragingSolver.cpp
   pipeline/global/ReconstructionEngine_globalSfM.cpp
+  pipeline/global/ReconstructionEngine_globalRotation.cpp
   pipeline/localization/SfMLocalizer.cpp
   pipeline/localization/SfMLocalizationSingle3DTrackObservationDatabase.cpp
   pipeline/sequential/ReconstructionEngine_sequentialSfM.cpp

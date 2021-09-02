@@ -9,6 +9,7 @@
 #include <aliceVision/sfmDataIO/sfmDataIO.hpp>
 #include <aliceVision/sfm/pipeline/regionsIO.hpp>
 #include <aliceVision/feature/imageDescriberCommon.hpp>
+#include <aliceVision/sfm/pipeline/global/ReconstructionEngine_globalRotation.hpp>
 #include <aliceVision/sfm/pipeline/panorama/ReconstructionEngine_panorama.hpp>
 #include <aliceVision/sfm/utils/alignment.hpp>
 #include <aliceVision/system/Timer.hpp>
@@ -102,6 +103,7 @@ int aliceVision_main(int argc, char **argv)
 
   int randomSeed = std::mt19937::default_seed;
 
+  sfm::ReconstructionEngine_globalRotation::Params paramsGR;
   sfm::ReconstructionEngine_panorama::Params params;
 
   po::options_description allParams(
@@ -262,6 +264,27 @@ int aliceVision_main(int argc, char **argv)
   if(!fs::exists(outDirectory))
   {
     ALICEVISION_LOG_ERROR("Output folder does not exist: " << outDirectory);
+    return EXIT_FAILURE;
+  }
+
+  sfm::ReconstructionEngine_globalRotation sfmEngineGR(
+    inputSfmData,
+    paramsGR,
+    outDirectory);
+  
+  sfmEngineGR.initRandomSeed(randomSeed);
+
+  // configure the featuresPerView & the matches_provider
+  sfmEngineGR.SetFeaturesProvider(&featuresPerView);
+  sfmEngineGR.SetMatchesProvider(&pairwiseMatches);
+  
+  if(filterMatches)
+  {
+      sfmEngineGR.filterMatches();
+  }
+
+  if(!sfmEngineGR.process())
+  {
     return EXIT_FAILURE;
   }
 
