@@ -45,7 +45,7 @@ public:
     Voxel estimateDimensions(Point3d* vox, Point3d* newSpace, int scale, int maxOcTreeDim, const sfmData::SfMData* sfmData = nullptr);
 
 private:
-    bool updateInSurr(float pixToleranceFactor, int pixSizeBall, int pixSizeBallWSP, Point3d& p, int rc, int tc, StaticVector<int>* numOfPtsMap,
+    bool updateInSurr(float pixToleranceFactor, int pixSizeBall, int pixSizeBallWSP, const Point3d &p, int rc, int tc, StaticVector<int>* numOfPtsMap,
                       StaticVector<float>* depthMap, StaticVector<float>* simMap, int scale);
 };
 

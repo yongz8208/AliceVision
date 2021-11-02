@@ -148,7 +148,7 @@ void SemiGlobalMatchingParams::getDepthSimMapFromBestIdVal(DepthSimMap& out_dept
                 float fpPlaneDepth = planesDepths[fpdepthId];
                 Point3d planen = (mp.iRArr[rc] * Point3d(0.0f, 0.0f, 1.0f)).normalize();
                 Point3d planep = mp.CArr[rc] + planen * fpPlaneDepth;
-                Point3d v = (mp.iCamArr[rc] * Point2d((float)(pixScale1.x), (float)(pixScale1.y))).normalize();
+                Point3d v = (mp.iCamArr[rc] * Point2d(double(pixScale1.x) + 0.5, double(pixScale1.y) + 0.5)).normalize();
                 Point3d p = linePlaneIntersect(mp.CArr[rc], v, planep, planen);
                 float depth = (mp.CArr[rc] - p).size();
 

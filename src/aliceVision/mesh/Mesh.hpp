@@ -120,6 +120,8 @@ public:
 
         rectangle(Pixel cell, int scale)
         {
+            // TODO: Convertion from integer coord to floating point coord.
+            //       Should we add 0.5?
             P[0].x = (float)(cell.x * scale + 0);
             P[0].y = (float)(cell.y * scale + 0);
             P[1].x = (float)(cell.x * scale + scale);

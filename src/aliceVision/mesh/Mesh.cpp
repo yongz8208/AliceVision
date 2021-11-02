@@ -2022,7 +2022,7 @@ void Mesh::initFromDepthMap(int stepDetail, const mvsUtils::MultiViewParams& mp,
         if(depth > 0.0f)
         {
             Point3d p = mp.CArr[rc] +
-                        (mp.iCamArr[rc] * Point2d((float)x * (float)(scale * step), (float)y * (float)(scale * step)))
+                        (mp.iCamArr[rc] * Point2d(double(x) * double(scale * step) + 0.5, double(y) * double(scale * step) + 0.5))
                                 .normalize() * depth;
             pts.push_back(p);
             usedMap.push_back(true);

@@ -149,8 +149,8 @@ __device__ float compNCCbyH(const CameraStructBase& rc_cam, const CameraStructBa
             tp = V2M3x3mulV2(H, rp);
 
             float2 g;
-            g.x = 255.0f * tex2D(rtex, rp.x + 0.5f, rp.y + 0.5f);
-            g.y = 255.0f * tex2D(ttex, tp.x + 0.5f, tp.y + 0.5f);
+            g.x = 255.0f * tex2D(rtex, rp.x, rp.y);
+            g.y = 255.0f * tex2D(ttex, tp.x, tp.y);
             sst.update(g);
         }
     }
@@ -201,8 +201,8 @@ __device__ float compNCCby3DptsYK( cudaTextureObject_t rc_tex,
 
     // see CUDA_C_Programming_Guide.pdf ... E.2 pp132-133 ... adding 0.5 caises that tex2D return for point i,j exactly
     // value od I(i,j) ... it is what we want
-    float4 gcr = tex2D_float4(rc_tex, rp.x + 0.5f, rp.y + 0.5f);
-    float4 gct = tex2D_float4(tc_tex, tp.x + 0.5f, tp.y + 0.5f);
+    float4 gcr = tex2D_float4(rc_tex, rp.x, rp.y);
+    float4 gct = tex2D_float4(tc_tex, tp.x, tp.y);
 
     // printf("gcr: R: %f, G: %f, B: %f, A: %f", gcr.x, gcr.y, gcr.z, gcr.w);
     // printf("gct: R: %f, G: %f, B: %f, A: %f", gct.x, gct.y, gct.z, gct.w);
@@ -226,8 +226,8 @@ __device__ float compNCCby3DptsYK( cudaTextureObject_t rc_tex,
 
             // see CUDA_C_Programming_Guide.pdf ... E.2 pp132-133 ... adding 0.5 caises that tex2D return for point i,j
             // exactly value od I(i,j) ... it is what we want
-            float4 gcr1 = tex2D_float4(rc_tex, rp1.x + 0.5f, rp1.y + 0.5f);
-            float4 gct1 = tex2D_float4(tc_tex, tp1.x + 0.5f, tp1.y + 0.5f);
+            float4 gcr1 = tex2D_float4(rc_tex, rp1.x, rp1.y);
+            float4 gct1 = tex2D_float4(tc_tex, tp1.x, tp1.y);
 
             // TODO: Does it make a difference to accurately test it for each pixel of the patch?
             // if (gcr1.w == 0.0f || gct1.w == 0.0f)
@@ -285,8 +285,8 @@ __device__ float3 get3DPointForPixelAndFrontoParellePlaneRC( int cam_cache_idx,
                                                              float fpPlaneDepth)
 {
     float2 pix;
-    pix.x = (float)pixi.x;
-    pix.y = (float)pixi.y;
+    pix.x = float(pixi.x) + 0.5f;
+    pix.y = float(pixi.y) + 0.5f;
     return get3DPointForPixelAndFrontoParellePlaneRC(cam_cache_idx, pix, fpPlaneDepth);
 }
 
@@ -303,8 +303,8 @@ __device__ float3 get3DPointForPixelAndDepthFromRC( int cam_cache_idx,
                                                     const int2& pixi, float depth)
 {
     float2 pix;
-    pix.x = (float)pixi.x;
-    pix.y = (float)pixi.y;
+    pix.x = float(pixi.x) + 0.5f;
+    pix.y = float(pixi.y) + 0.5f;
     return get3DPointForPixelAndDepthFromRC(cam_cache_idx, pix, depth);
 }
 

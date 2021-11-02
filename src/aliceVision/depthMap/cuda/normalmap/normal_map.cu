@@ -49,8 +49,8 @@ __device__ static inline
 float3 get3DPointForPixelAndDepthFromRC(const CameraStructBase& rc_cam, const int2& pixi, float depth)
 {
     float2 pix;
-    pix.x = (float)pixi.x;
-    pix.y = (float)pixi.y;
+    pix.x = float(pixi.x) + 0.5f;
+    pix.y = float(pixi.y) + 0.5f;
     return get3DPointForPixelAndDepthFromRC(rc_cam, pix, depth);
 }
 

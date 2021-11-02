@@ -339,7 +339,7 @@ void createVerticesWithVisibilities(const StaticVector<int>& cams, std::vector<P
                 if(depth <= 0.0f)
                     continue;
 
-                const Point3d p = mp.backproject(c, Point2d(x, y), depth);
+                const Point3d p = mp.backproject(c, Point2d(double(x) + 0.5, double(y) + 0.5), depth);
                 const double pixSize = mp.getCamPixelSize(p, c);
 #ifdef USE_GEOGRAM_KDTREE
                 const std::size_t nearestVertexIndex = kdTree.get_nearest_neighbor(p.m);
@@ -1006,7 +1006,7 @@ void DelaunayGraphCut::addMaskHelperPoints(const Point3d voxel[8], const StaticV
                     if(bestScore > 0.0f)
                     {
                         const Point3d& cam = _mp.CArr[c];
-                        Point3d maxP = cam + (_mp.iCamArr[c] * Point2d((float)bestX, (float)bestY)).normalize() * 10000000.0; 
+                        Point3d maxP = cam + (_mp.iCamArr[c] * Point2d(double(bestX) + 0.5, double(bestY) + 0.5)).normalize() * 10000000.0;
                         StaticVector<Point3d>* intersectionsPtr = mvsUtils::lineSegmentHexahedronIntersection(cam, maxP, inflatedVoxel);
 
                         if(intersectionsPtr->size() <= 0)
@@ -1196,7 +1196,7 @@ void DelaunayGraphCut::fuseFromDepthMaps(const StaticVector<int>& cams, const Po
                     }
                     else
                     {
-                        Point3d p = _mp.CArr[c] + (_mp.iCamArr[c] * Point2d((float)bestX, (float)bestY)).normalize() * bestDepth;
+                        const Point3d p = _mp.CArr[c] + (_mp.iCamArr[c] * Point2d(double(bestX) + 0.5, double(bestY) + 0.5)).normalize() * bestDepth;
                         
                         // TODO: isPointInHexahedron: here or in the previous loop per pixel to not loose point?
                         if(voxel == nullptr || mvsUtils::isPointInHexahedron(p, voxel)) 

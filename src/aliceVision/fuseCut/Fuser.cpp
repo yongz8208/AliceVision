@@ -80,7 +80,7 @@ Fuser::~Fuser()
  * @param[in] simMap
  * @param[in] scale
  */
-bool Fuser::updateInSurr(float pixToleranceFactor, int pixSizeBall, int pixSizeBallWSP, Point3d& p, int rc, int tc,
+bool Fuser::updateInSurr(float pixToleranceFactor, int pixSizeBall, int pixSizeBallWSP, const Point3d& p, int rc, int tc,
                            StaticVector<int>* numOfPtsMap, StaticVector<float>* depthMap, StaticVector<float>* simMap,
                            int scale)
 {
@@ -205,7 +205,7 @@ bool Fuser::filterGroupsRC(int rc, float pixToleranceFactor, int pixSizeBall, in
                     float depth = tcdepthMap[y * w + x];
                     if(depth > 0.0f)
                     {
-                      Point3d p = _mp.CArr[tc] + (_mp.iCamArr[tc] * Point2d((float)x, (float)y)).normalize() * depth;
+                      const Point3d p = _mp.CArr[tc] + (_mp.iCamArr[tc] * Point2d(double(x) + 0.5, double(y) + 0.5)).normalize() * depth;
                       updateInSurr(pixToleranceFactor, pixSizeBall, pixSizeBallWSP, p, rc, tc, numOfPtsMap, &depthMap, &simMap, 1);
                     }
                 }
@@ -359,7 +359,7 @@ float Fuser::computeAveragePixelSizeInHexahedron(Point3d* hexah, int step, int s
                     if(j % step == 0)
                     {
                         Point3d p = _mp.CArr[rc] +
-                                    (_mp.iCamArr[rc] * Point2d((float)x * (float)scaleuse, (float)y * (float)scaleuse))
+                                    (_mp.iCamArr[rc] * Point2d(double(x) * double(scaleuse) + 0.5, double(y) * double(scaleuse) + 0.5))
                                             .normalize() *
                                         depth;
                         if(mvsUtils::isPointInHexahedron(p, hexah))
@@ -454,7 +454,7 @@ void Fuser::divideSpaceFromDepthMaps(Point3d* hexah, float& minPixSize)
             float depth = depthMap[i];
             if(depth > 0.0f)
             {
-                Point3d p = _mp.CArr[rc] + (_mp.iCamArr[rc] * Point2d((float)x, (float)y)).normalize() * depth;
+                Point3d p = _mp.CArr[rc] + (_mp.iCamArr[rc] * Point2d(double(x) + 0.5, double(y) + 0.5)).normalize() * depth;
                 float pixSize = _mp.getCamPixelSize(p, rc);
                 minPixSize = std::min(minPixSize, pixSize);
                 s3d.update(&p);
@@ -498,7 +498,7 @@ void Fuser::divideSpaceFromDepthMaps(Point3d* hexah, float& minPixSize)
             float depth = depthMap[i];
             if(depth > 0.0f)
             {
-                Point3d p = _mp.CArr[rc] + (_mp.iCamArr[rc] * Point2d((float)x, (float)y)).normalize() * depth;
+                Point3d p = _mp.CArr[rc] + (_mp.iCamArr[rc] * Point2d(double(x) + 0.5, double(y) + 0.5)).normalize() * depth;
                 float d1 = orientedPointPlaneDistance(p, cg, v1);
                 float d2 = orientedPointPlaneDistance(p, cg, v2);
                 float d3 = orientedPointPlaneDistance(p, cg, v3);
@@ -796,7 +796,7 @@ std::string generateTempPtsSimsFiles(std::string tmpDir, mvsUtils::MultiViewPara
                         if(depth > 0.0f)
                         {
                             Point3d p = mp.CArr[rc] +
-                                        (mp.iCamArr[rc] * Point2d((double)x * (double)scaleuse, (double)y * (double)scaleuse))
+                                        (mp.iCamArr[rc] * Point2d(double(x) * double(scaleuse) + 0.5, double(y) * double(scaleuse) + 0.5))
                                                 .normalize() *
                                             depth;
 
@@ -805,10 +805,10 @@ std::string generateTempPtsSimsFiles(std::string tmpDir, mvsUtils::MultiViewPara
                                 double pixSize = mp.getCamPixelSize(p, rc);
                                 int rid = rand() % (2 * noisPixSizeDistHalfThr + 1);
                                 rid = rid - noisPixSizeDistHalfThr;
-                                double rdepthAdd = pixSize * (double)rid;
+                                double rdepthAdd = pixSize * double(rid);
                                 depth = depth + rdepthAdd;
                                 p = mp.CArr[rc] +
-                                    (mp.iCamArr[rc] * Point2d((double)x * (double)scaleuse, (double)y * (double)scaleuse))
+                                    (mp.iCamArr[rc] * Point2d(double(x) * double(scaleuse) + 0.5, double(y) * double(scaleuse) + 0.5))
                                             .normalize() *
                                         depth;
                             }
@@ -853,7 +853,7 @@ std::string generateTempPtsSimsFiles(std::string tmpDir, mvsUtils::MultiViewPara
                         {
                             Point3d p =
                                 mp.CArr[rc] +
-                                (mp.iCamArr[rc] * Point2d((double)x * (double)scaleuse, (double)y * (double)scaleuse))
+                                (mp.iCamArr[rc] * Point2d(double(x) * double(scaleuse) + 0.5, double(y) * double(scaleuse) + 0.5))
                                         .normalize() *
                                     depth;
                             pts->push_back(p);
