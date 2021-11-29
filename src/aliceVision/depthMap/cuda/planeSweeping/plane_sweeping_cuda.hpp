@@ -22,6 +22,7 @@ namespace depthMap {
     using TSimAcc = unsigned int; // TSimAcc is the similarity accumulation type
 #endif
 
+using TSimRefine = unsigned char;
 
 void ps_initCameraMatrix( CameraStructBase& base );
 
@@ -44,6 +45,11 @@ public:
         CudaDeviceMemoryPitched<TSim, 3>& volSecBestSim_dmp,
         const int streamIndex );
 
+    void initFromSimMap(CudaDeviceMemoryPitched<TSimRefine, 3>& volume_dmp, 
+                        const CudaHostMemoryHeap<float, 2>& simMap_hmh, 
+                        int zIndex,
+                        int streamIndex);
+
     void compute(
           CudaDeviceMemoryPitched<TSim, 3>& volBestSim_dmp,
           CudaDeviceMemoryPitched<TSim, 3>& volSecBestSim_dmp,
@@ -52,6 +58,13 @@ public:
           const OneTC&  cell,
           const SgmParams& sgmParams,
           int streamIndex );
+
+    void refine(CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, 
+                CudaDeviceMemoryPitched<float, 2>& depthMap_dmp, 
+                const CameraStruct& rcam, int rcWidth, int rcHeight,
+                const CameraStruct& tcam, int tcWidth, int tcHeight, 
+                const RefineParams& refineParams, 
+                int streamIndex);
 
     inline int dimX()      const { return _dimX; }
     inline int dimY()      const { return _dimY; }
@@ -100,6 +113,14 @@ void ps_SGMretrieveBestDepth(int rcamCacheId,
                             const CudaSize<3>& volDim, 
                             const CudaDeviceMemory<float>& depths_d, 
                             int scaleStep, bool interpolate);
+
+void ps_refineBestDepth(int rcamCacheId, 
+                        CudaDeviceMemoryPitched<float, 2>& bestDepthMap_dmp,
+                        CudaDeviceMemoryPitched<float, 2>& bestSimMap_dmp,
+                        const CudaDeviceMemoryPitched<float, 2>& originalDepthMap_dmp,
+                        const CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, 
+                        const CudaSize<3>& volDim,
+                        int scaleStep, bool interpolate);
 
 int ps_listCUDADevices(bool verbose);
 

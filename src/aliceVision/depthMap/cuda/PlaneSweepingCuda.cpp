@@ -152,6 +152,42 @@ void copy(StaticVector<DepthSim>& outDepthSimMap, const CudaHostMemoryHeap<float
     }
 }
 
+void copyDepth(CudaHostMemoryHeap<float, 2>& outHmh, const DepthSimMap& depthSimMap)
+{
+    const int w = outHmh.getSize()[0];
+    const int h = outHmh.getSize()[1];
+
+    assert(w == depthSimMap.getWidth());
+    assert(h == depthSimMap.getHeight());
+
+    for(int y = 0; y < h; ++y)
+    {
+        for(int x = 0; x < w; ++x)
+        {
+            const StaticVector<DepthSim>& data = depthSimMap.getData();
+            outHmh(x, y) = data[y * w + x].depth;
+        }
+    }
+}
+
+void copySim(CudaHostMemoryHeap<float, 2>& outHmh, const DepthSimMap& depthSimMap)
+{
+    const int w = outHmh.getSize()[0];
+    const int h = outHmh.getSize()[1];
+
+    assert(w == depthSimMap.getWidth());
+    assert(h == depthSimMap.getHeight());
+
+    for(int y = 0; y < h; ++y)
+    {
+        for(int x = 0; x < w; ++x)
+        {
+            const StaticVector<DepthSim>& data = depthSimMap.getData();
+            outHmh(x, y) = data[y * w + x].sim;
+        }
+    }
+}
+
 int listCUDADevices(bool verbose)
 {
     return ps_listCUDADevices(verbose);
@@ -563,6 +599,162 @@ void PlaneSweepingCuda::sgmRetrieveBestDepth(int rc,
 
   ALICEVISION_LOG_INFO("SGM Retrieve best depth in volume done in: " << timer.elapsedMs() << " ms.");
 }
+
+void PlaneSweepingCuda::refineDepthSimMapVolume(int rc, 
+                                                CudaDeviceMemoryPitched<TSimRefine, 3>& volumeRefineSim_dmp, 
+                                                const CudaSize<3>& volDim,
+                                                const std::vector<int>& tCams, 
+                                                const DepthSimMap& depthSimMapSgmUpscale,
+                                                const RefineParams& refineParams)
+{
+    const system::Timer timer;
+
+    ALICEVISION_LOG_INFO("Refine similarity volume (x: " << volDim.x() << ", y: " << volDim.y() << ", z: " << volDim.z() << ")");
+
+    nvtxPush("preload host cache ");
+    _ic.getImg_sync(rc);
+    for(const auto& tc : tCams)
+        _ic.getImg_sync(tc);
+    nvtxPop("preload host cache ");
+
+    const CudaSize<2> depthSimMapDim(volDim.x(), volDim.y());
+
+    CudaDeviceMemoryPitched<float, 2> depthMap_dmp(depthSimMapDim); // allocate depthMap on device
+    {
+        CudaHostMemoryHeap<float, 2> depthMap_hmh(depthSimMapDim);
+        copyDepth(depthMap_hmh, depthSimMapSgmUpscale); // copy depthMap in host memory heap
+        depthMap_dmp.copyFrom(depthMap_hmh);            // fill depthMap on device
+        depthMap_hmh.deallocate(); // deallocate depthMap in host memory heap
+    }
+
+    // allocate similarity volume on device
+    std::vector<float> depths(1); // useless, only for sgm compatibility
+    ps::SimilarityVolume vol(volDim, refineParams.stepXY, refineParams.scale, depths);
+
+    // fill similarity volume  on device
+    {
+        const int centerDepthIndex = (refineParams.nDepthsToRefine - 1) / 2;
+
+        CudaHostMemoryHeap<float, 2> simMap_hmh(depthSimMapDim);
+        copySim(simMap_hmh, depthSimMapSgmUpscale); // copy simMap in host memory heap
+        vol.initFromSimMap(volumeRefineSim_dmp, simMap_hmh, centerDepthIndex, 0); // initialize sim(x,y,z) = simMap(x,y) at z = centerDepthIndex
+        simMap_hmh.deallocate(); // deallocate simMap in host memory heap
+    }
+
+    vol.WaitSweepStream(0);
+  
+    for(int i = 0; i < tCams.size(); ++i)
+    {
+        vol.WaitSweepStream(i);
+        cudaStream_t stream = vol.SweepStream(i);
+
+        const system::Timer timerPerTc;
+
+        const int tc = tCams[i];
+
+        const int rcWidth = _mp.getWidth(rc) / vol.scale();
+        const int rcHeight = _mp.getHeight(rc) / vol.scale();
+
+        const int tcWidth = _mp.getWidth(tc) / vol.scale();
+        const int tcHeight = _mp.getHeight(tc) / vol.scale();
+
+        const int rcFrameCacheId = addCam(rc, vol.scale(), stream);
+        const int tcFrameCacheId = addCam(tc, vol.scale(), stream);
+
+        const CameraStruct& rcam = _cams[rcFrameCacheId];
+        const CameraStruct& tcam = _cams[tcFrameCacheId];
+
+        const auto deviceMemoryInfo = getDeviceMemoryInfo();
+
+        ALICEVISION_LOG_DEBUG("Refine similarity volume:" << std::endl
+                              << "\t- rc: " << rc << std::endl
+                              << "\t- tc: " << tc << " (" << i << "/" << tCams.size() << ")" << std::endl
+                              << "\t- rc frame cache id: " << rcFrameCacheId << std::endl
+                              << "\t- tc frame cache id: " << tcFrameCacheId << std::endl
+                              << "\t- device similarity volume size: "
+                              << volumeRefineSim_dmp.getBytesPadded() / (1024.0 * 1024.0) << " MB" << std::endl
+                              << "\t- device unpadded similarity volume size: "
+                              << volumeRefineSim_dmp.getBytesUnpadded() / (1024.0 * 1024.0) << " MB" << std::endl
+                              << "\t- device memory available: " << deviceMemoryInfo.x << "MB, total: " << deviceMemoryInfo.y << " MB" << std::endl);
+        
+        vol.refine(volumeRefineSim_dmp, 
+                   depthMap_dmp,
+                   rcam, rcWidth, rcHeight, 
+                   tcam, tcWidth, tcHeight,
+                   refineParams, i);
+        
+
+        ALICEVISION_LOG_DEBUG("Refine similarity volume (with tc: " << tc << ") done in: " << timerPerTc.elapsedMs() << " ms.");
+    }
+    
+
+    // deallocate depthMap on device
+    depthMap_dmp.deallocate();
+
+    ALICEVISION_LOG_INFO("Refine similarity volume done in: " << timer.elapsedMs() << " ms.");
+}
+
+void PlaneSweepingCuda::refineBestDepth(int rc, 
+                                        DepthSimMap& bestDepthSimMap, 
+                                        const DepthSimMap& depthSimMapSgmUpscale,
+                                        const CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, 
+                                        const CudaSize<3>& volDim,
+                                        const RefineParams& refineParams)
+{
+    const system::Timer timer;
+
+    ALICEVISION_LOG_INFO("Refine Retrieve best depth in volume (x: " << volDim.x() << ", y: " << volDim.y() << ", z: " << volDim.z() << ")");
+    
+    const CudaSize<2> depthSimMapDim(depthSimMapSgmUpscale.getWidth(), depthSimMapSgmUpscale.getHeight());
+
+    CudaDeviceMemoryPitched<float, 2> originalDepthMap_dmp(depthSimMapDim); // allocate sgmUpscale depthMap on device
+    {
+        CudaHostMemoryHeap<float, 2> depthMap_hmh(depthSimMapDim);
+        copyDepth(depthMap_hmh, depthSimMapSgmUpscale); // copy depthMap in host memory heap
+        originalDepthMap_dmp.copyFrom(depthMap_hmh);    // fill depthMap on device
+        depthMap_hmh.deallocate();                      // deallocate depthMap in host memory heap
+    }
+
+    CudaDeviceMemoryPitched<float, 2> bestDepthMap_dmp(depthSimMapDim);
+    CudaDeviceMemoryPitched<float, 2> bestSimMap_dmp(depthSimMapDim);
+
+    const int scaleStep = refineParams.scale * refineParams.stepXY;
+    const int rcFrameCacheId = addCam(rc, bestDepthSimMap.getScale());
+    const int rcamCacheId = _hidden->getLocalCamId(rcFrameCacheId);
+
+    ps_refineBestDepth(rcamCacheId,
+                       bestDepthMap_dmp, 
+                       bestSimMap_dmp, 
+                       originalDepthMap_dmp,
+                       volSim_dmp, 
+                       volDim, 
+                       scaleStep, refineParams.interpolateRetrieveBestDepth);
+
+    CudaHostMemoryHeap<float, 2> bestDepthMap_hmh(depthSimMapDim);
+    bestDepthMap_hmh.copyFrom(bestDepthMap_dmp);
+    bestDepthMap_dmp.deallocate();
+
+    CudaHostMemoryHeap<float, 2> bestSimMap_hmh(depthSimMapDim);
+    bestSimMap_hmh.copyFrom(bestSimMap_dmp);
+    bestSimMap_dmp.deallocate();
+
+    for(int y = 0; y < depthSimMapDim.y(); ++y)
+    {
+        for(int x = 0; x < depthSimMapDim.x(); ++x)
+        {
+            DepthSim& out = bestDepthSimMap._dsm[y * depthSimMapDim.x() + x];
+            out.depth = bestDepthMap_hmh(x, y);
+            out.sim = bestSimMap_hmh(x, y);
+        }
+    }
+
+    bestDepthMap_hmh.deallocate();
+    bestSimMap_hmh.deallocate();
+    originalDepthMap_dmp.deallocate(); // deallocate sgmUpscale depthMap on device
+
+    ALICEVISION_LOG_INFO("Refine Retrieve best depth in volume done in: " << timer.elapsedMs() << " ms.");
+}
+
 
 // make_float3(avail,total,used)
 Point3d PlaneSweepingCuda::getDeviceMemoryInfo()

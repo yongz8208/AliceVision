@@ -34,6 +34,8 @@ namespace depthMap {
     using TSim = unsigned char;
 #endif
 
+using TSimRefine = unsigned char;
+
 /*********************************************************************************
  * CamSelection
  * Support class for operating an LRU cache of the currently selection cameras
@@ -114,6 +116,20 @@ public:
         const CudaSize<3>& volDim,
         const StaticVector<float>& rcDepths, 
         const SgmParams& sgmParams);
+
+    void refineDepthSimMapVolume(int rc, 
+        CudaDeviceMemoryPitched<TSimRefine, 3>& volumeRefineSim_dmp,
+        const CudaSize<3>& volDim,
+        const std::vector<int>& tCams,
+        const DepthSimMap& depthSimMapSgmUpscale,
+        const RefineParams& refineParams);
+
+    void refineBestDepth(int rc, 
+        DepthSimMap& bestDepthSimMap, 
+        const DepthSimMap& depthSimMapSgmUpscale, 
+        const CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, 
+        const CudaSize<3>& volDim,
+        const RefineParams& refineParams);
 
     Point3d getDeviceMemoryInfo();
 

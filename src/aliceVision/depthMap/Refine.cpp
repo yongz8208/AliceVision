@@ -12,6 +12,7 @@
 #include <aliceVision/gpu/gpu.hpp>
 
 #include <aliceVision/depthMap/RefineParams.hpp>
+#include <aliceVision/depthMap/volumeIO.hpp>
 #include <aliceVision/depthMap/cuda/PlaneSweepingCuda.hpp>
 
 #include <aliceVision/mvsData/Point2d.hpp>
@@ -85,8 +86,8 @@ void Refine::filterMaskedPixels(DepthSimMap& out_depthSimMap)
             {
                 DepthSim& depthSim = out_depthSimMap._dsm[y * w + x];
 
-                depthSim.depth = -2.0;
-                depthSim.sim = -1.0;
+                depthSim.depth = -2.0f;
+                depthSim.sim = -1.0f;
             }
         }
     }
@@ -230,6 +231,63 @@ void Refine::refineAndFuseDepthSimMap(const DepthSimMap& depthSimMapSgmUpscale, 
     ALICEVISION_LOG_INFO("Refine and fuse depth/sim map (rc: " << _rc << ") done in: " << timer.elapsedMs() << " ms.");
 }
 
+void Refine::refineAndFuseDepthSimMapVolume(const DepthSimMap& depthSimMapSgmUpscale, DepthSimMap& out_depthSimMapRefinedFused) const
+{
+    const system::Timer timer;
+    const IndexT viewId = _mp.getViewId(_rc);
+
+    ALICEVISION_LOG_INFO("Refine and fuse depth/sim map of view id: " << viewId << ", rc: " << _rc << " (" << (_rc + 1) << " / " << _mp.ncams << ")");
+
+    // compute volume dimensions
+    const int volDimX = _mp.getWidth(_rc) / (_refineParams.scale * _refineParams.stepXY);
+    const int volDimY = _mp.getHeight(_rc) / (_refineParams.scale * _refineParams.stepXY);
+    const int volDimZ = _refineParams.nDepthsToRefine;
+
+    const CudaSize<3> volDim(volDimX, volDimY, volDimZ);
+
+    // log volumes allocation size / gpu device id
+    // this device need also to allocate:
+    // (max_img - 1) * X * Y * dims_at_a_time * sizeof(float) of device memory.
+    {
+        int devid;
+        cudaGetDevice(&devid);
+        ALICEVISION_LOG_DEBUG("Allocating a volume (x: " << volDim.x() << ", y: " << volDim.y() << ", z: " << volDim.z() << ") on GPU device " << devid << ".");
+    }
+    CudaDeviceMemoryPitched<TSimRefine, 3> volumeRefineSim_dmp(volDim);
+
+    _cps.refineDepthSimMapVolume(_rc, volumeRefineSim_dmp, volDim, _tCams.getData(), depthSimMapSgmUpscale, _refineParams);
+
+    //if(_refineParams.exportIntermediateResults)
+    {
+        CudaHostMemoryHeap<TSimRefine, 3> volumeSim_h(volumeRefineSim_dmp.getSize());
+        volumeSim_h.copyFrom(volumeRefineSim_dmp);
+        exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, _rc, _refineParams, _mp.getDepthMapsFolder() + std::to_string(viewId) + "_vol_afterRefine.abc");
+        volumeSim_h.deallocate();
+    }
+
+    // refine opt
+    // CudaDeviceMemoryPitched<TSimRefine, 3> volumeRefineFiltered_dmp(volDim);
+    // SgmParams sgmParams;
+    // sgmParams.scale == _refineParams.scale;
+    // sgmParams.stepXY == _refineParams.stepXY;
+    // _cps.sgmOptimizeSimVolume(_rc, volumeRefineFiltered_dmp, volumeRefineSim_dmp, volDim, sgmParams);
+
+    //if(_refineParams.exportIntermediateResults)
+    // {
+    //     CudaHostMemoryHeap<TSimRefine, 3> volumeSim_h(volumeRefineFiltered_dmp.getSize());
+    //     volumeSim_h.copyFrom(volumeRefineFiltered_dmp);
+    //     exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, _rc, _refineParams, _mp.getDepthMapsFolder() + std::to_string(viewId) + "_vol_afterRefineOpt.abc");
+    //     volumeSim_h.deallocate();
+    // }
+     
+    // Retrieve best depth per pixel
+    // For each pixel, choose the voxel with the minimal similarity value
+    _cps.refineBestDepth(_rc, out_depthSimMapRefinedFused, depthSimMapSgmUpscale, volumeRefineSim_dmp, volDim, _refineParams);
+
+    volumeRefineSim_dmp.deallocate();
+    // volumeRefineFiltered_dmp.deallocate();
+}
+
 void Refine::optimizeDepthSimMap(const DepthSimMap& depthSimMapSgmUpscale,     // upscaled SGM depth sim map
                                  const DepthSimMap& depthSimMapRefinedFused,   // refined and fused depth sim map
                                  DepthSimMap& out_depthSimMapOptimized) const  // optimized depth sim map
@@ -289,9 +347,12 @@ bool Refine::refineRc(const DepthSimMap& sgmDepthSimMap)
 
     DepthSimMap depthSimMapRefinedFused(_rc, _mp, 1, 1); // depthSimMapPhoto
 
-    if(_refineParams.doRefineFuse)
+    if(_refineParams.doRefineFuseLegacy || _refineParams.doRefineFuseVolume)
     {
-        refineAndFuseDepthSimMap(depthSimMapSgmUpscale, depthSimMapRefinedFused);
+        if(_refineParams.doRefineFuseLegacy)
+          refineAndFuseDepthSimMap(depthSimMapSgmUpscale, depthSimMapRefinedFused);
+        else if(_refineParams.doRefineFuseVolume)
+          refineAndFuseDepthSimMapVolume(depthSimMapSgmUpscale, depthSimMapRefinedFused);
 
         if(_refineParams.exportIntermediateResults)
         {

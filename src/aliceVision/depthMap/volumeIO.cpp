@@ -68,6 +68,69 @@ void exportSimilarityVolume(const CudaHostMemoryHeap<TSim, 3>& volumeSim, const 
     sfmDataIO::Save(pointCloud, filepath, sfmDataIO::ESfMData::STRUCTURE);
 }
 
+void exportSimilarityVolume(const CudaHostMemoryHeap<TSimRefine, 3>& volumeSim, 
+                            const DepthSimMap& depthSimMapSgmUpscale,
+                            const mvsUtils::MultiViewParams& mp, 
+                            int camIndex, 
+                            const RefineParams& refineParams,
+                            const std::string& filepath)
+{
+    sfmData::SfMData pointCloud;
+
+    const auto volDim = volumeSim.getSize();
+    const size_t spitch = volumeSim.getBytesPaddedUpToDim(1);
+    const size_t pitch = volumeSim.getBytesPaddedUpToDim(0);
+
+    const float maxValue = 80.0f;
+    const int xyStep = 10;
+    const int width = depthSimMapSgmUpscale.getWidth();
+
+    ALICEVISION_LOG_DEBUG("DepthMap exportSimilarityVolume: " << volDim[0] << " x " << volDim[1] << " x " << volDim[2] << ", xyStep=" << xyStep << ".");
+
+    IndexT landmarkId = 0;
+
+    for(int y = 0; y < volDim[1]; y += xyStep)
+    {
+        for(int x = 0; x < volDim[0]; x += xyStep)
+        {
+            const float downscaleX = float(x * refineParams.scale * refineParams.stepXY);
+            const float downscaleY = float(y * refineParams.scale * refineParams.stepXY);
+            const Point2d pix = Point2d(downscaleX, downscaleY);
+
+            const double orignalDepth = double(depthSimMapSgmUpscale._dsm[y * width + x].depth);
+
+            if(orignalDepth < 0.0f) // original depth invalid or masked
+                continue;
+
+            const Point3d originalP = mp.CArr[camIndex] + (mp.iCamArr[camIndex] * pix).normalize() * orignalDepth;
+            const double pixSize = mp.getCamPixelSize(originalP, camIndex);
+
+            for(int z = 0; z < volDim[2]; ++z)
+            {
+                const float simValue = float(*get3DBufferAt_h<TSimRefine>(volumeSim.getBuffer(), spitch, pitch, x, y, z));
+
+                if(simValue > maxValue)
+                    continue;
+
+                const int relativeDepthIndexOffset = z - ((refineParams.nDepthsToRefine - 1) / 2);
+                const double planeDepth = orignalDepth + (relativeDepthIndexOffset * pixSize); // original depth + z based pixSize offset
+
+                const Point3d planen = (mp.iRArr[camIndex] * Point3d(0.0f, 0.0f, 1.0f)).normalize();
+                const Point3d planep = mp.CArr[camIndex] + planen * planeDepth;
+                const Point3d v = (mp.iCamArr[camIndex] * pix).normalize();
+                const Point3d p = linePlaneIntersect(mp.CArr[camIndex], v, planep, planen);
+
+                const rgb c = getRGBFromJetColorMap(simValue / maxValue);
+                pointCloud.getLandmarks()[landmarkId] = sfmData::Landmark(Vec3(p.x, p.y, p.z), feature::EImageDescriberType::UNKNOWN, sfmData::Observations(), image::RGBColor(c.r, c.g, c.b));
+
+                ++landmarkId;
+            }
+        }
+    }
+
+    sfmDataIO::Save(pointCloud, filepath, sfmDataIO::ESfMData::STRUCTURE);
+}
+
 inline unsigned char float_to_uchar(float v)
 {
     float vv = std::max(0.f, v);

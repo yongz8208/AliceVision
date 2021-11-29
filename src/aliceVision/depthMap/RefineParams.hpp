@@ -30,8 +30,11 @@ struct RefineParams
   // constant parameters
 
   const int scale = 1; // should remain at 1 for now, some Refine functions do not support this parameter
-  const bool doRefineFuse = true;
-  const bool doRefineOpt = true;
+  const int stepXY = 1;
+  const bool doRefineFuseLegacy = false;
+  const bool doRefineFuseVolume = true;
+  const bool interpolateRetrieveBestDepth = false;
+  const bool doRefineOpt = false;
 };
 
 } // namespace depthMap

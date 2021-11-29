@@ -378,6 +378,35 @@ void ps_SGMretrieveBestDepth(int rcamCacheId,
     interpolate);
 }
 
+void ps_refineBestDepth(int rcamCacheId, 
+                        CudaDeviceMemoryPitched<float, 2>& bestDepthMap_dmp,
+                        CudaDeviceMemoryPitched<float, 2>& bestSimMap_dmp,
+                        const CudaDeviceMemoryPitched<float, 2>& originalDepthMap_dmp,
+                        const CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, 
+                        const CudaSize<3>& volDim, 
+                        int scaleStep, bool interpolate)
+{
+    const int blockSize = 8;
+    const dim3 block(blockSize, blockSize, 1);
+    const dim3 grid(divUp(volDim.x(), blockSize), divUp(volDim.y(), blockSize), 1);
+
+    volume_refineBestZ_kernel<<<grid, block>>>(
+      rcamCacheId,
+      bestDepthMap_dmp.getBuffer(),
+      bestDepthMap_dmp.getBytesPaddedUpToDim(0),
+      bestSimMap_dmp.getBuffer(),
+      bestSimMap_dmp.getBytesPaddedUpToDim(0), 
+      originalDepthMap_dmp.getBuffer(), 
+      originalDepthMap_dmp.getBytesPaddedUpToDim(0),
+      volSim_dmp.getBuffer(),
+      volSim_dmp.getBytesPaddedUpToDim(1), volSim_dmp.getBytesPaddedUpToDim(0), 
+      int(volDim.x()), 
+      int(volDim.y()), 
+      int(volDim.z()), 
+      scaleStep,
+      interpolate);
+}
+
 
 
 namespace ps
@@ -444,6 +473,28 @@ void SimilarityVolume::initOutputVolumes(
       volSecBestSim_dmp.getBytesPaddedUpToDim(1),
       volSecBestSim_dmp.getBytesPaddedUpToDim(0),
       _dimX, _dimY);
+}
+
+void SimilarityVolume::initFromSimMap(CudaDeviceMemoryPitched<TSimRefine, 3>& volume_dmp,
+                                      const CudaHostMemoryHeap<float, 2>& simMap_hmh,
+                                      int zIndex,
+                                      int streamIndex)
+{
+    const dim3 block(32, 4, 1);
+    const dim3 grid(divUp(_dimX, block.x), divUp(_dimY, block.y), _dimZ);
+
+    // allocate and fill simMap on device
+    CudaDeviceMemoryPitched<float, 2> simMap_dmp(simMap_hmh.getSize());
+    simMap_dmp.copyFrom(simMap_hmh);
+
+    // initialize sim(x,y,z) to 255 or to simMap(x,y) if z = zIndex
+    volume_initFromSimMap_kernel<<<grid, block, 0, SweepStream(streamIndex)>>>(
+      volume_dmp.getBuffer(), volume_dmp.getBytesPaddedUpToDim(1), volume_dmp.getBytesPaddedUpToDim(0),
+      simMap_dmp.getBuffer(), simMap_dmp.getBytesPaddedUpToDim(0),
+      zIndex, _dimX, _dimY);
+
+    // deallocate simMap on device
+    simMap_dmp.deallocate();
 }
 
 void SimilarityVolume::compute(
@@ -513,6 +564,34 @@ void SimilarityVolume::compute(
     }
 
     // cudaDeviceSynchronize();
+}
+
+void SimilarityVolume::refine(CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp,
+                              CudaDeviceMemoryPitched<float, 2>& depthMap_dmp,
+                              const CameraStruct& rcam, int rcWidth, int rcHeight,
+                              const CameraStruct& tcam, int tcWidth, int tcHeight,
+                              const RefineParams& refineParams, 
+                              int streamIndex)
+{
+    const dim3 grid(divUp(_dimX, _block.x), divUp(_dimY, _block.y), _dimZ);
+
+    const Pyramid& rcPyramid = *rcam.pyramid;
+    const Pyramid& tcPyramid = *tcam.pyramid;
+
+    cudaTextureObject_t rc_tex = rcPyramid[prevScale()].tex;
+    cudaTextureObject_t tc_tex = tcPyramid[prevScale()].tex;
+
+    volume_refine_kernel<<<grid, _block, 0, SweepStream(streamIndex)>>>(
+        rc_tex, tc_tex,
+        rcam.param_dev.i, tcam.param_dev.i,
+        rcWidth, rcHeight, 
+        tcWidth, tcHeight, 
+        refineParams.wsh, 
+        float(refineParams.gammaC), 
+        float(refineParams.gammaP), 
+        depthMap_dmp.getBuffer(), depthMap_dmp.getBytesPaddedUpToDim(0), 
+        volSim_dmp.getBuffer(), volSim_dmp.getBytesPaddedUpToDim(1), volSim_dmp.getBytesPaddedUpToDim(0), 
+        _stepXY, _dimX, _dimY, _dimZ);
 }
 
 cudaStream_t SimilarityVolume::SweepStream( int streamIndex )

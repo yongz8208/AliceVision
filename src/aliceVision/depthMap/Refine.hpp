@@ -69,6 +69,13 @@ private:
     void refineAndFuseDepthSimMap(const DepthSimMap& depthSimMapSgmUpscale, DepthSimMap& out_depthSimMapRefinedFused) const;
 
     /**
+     * @brief Refine and fuse the given depth/sim map.
+     * @param[in] depthSimMapSgmUpscale the given upscaled SGM depth sim/map
+     * @param[out] out_depthSimMapRefinedFused the given output refined and fused depth/sim map
+     */
+    void refineAndFuseDepthSimMapVolume(const DepthSimMap& depthSimMapSgmUpscale, DepthSimMap& out_depthSimMapRefinedFused) const;
+
+    /**
      * @brief Optimize the given depth/sim maps.
      * @param[in] depthSimMapSgmUpscale the given upscaled SGM depth/sim map
      * @param[in] depthSimMapRefinedFused the given refined and fused depth/sim map
