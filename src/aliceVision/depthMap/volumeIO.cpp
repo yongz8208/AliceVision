@@ -228,6 +228,56 @@ void exportSimilaritySamplesCSV(const CudaHostMemoryHeap<TSim, 3>& volumeSim, co
         file << ss.str();
 }
 
+void exportSimilaritySamplesCSV(const CudaHostMemoryHeap<TSimRefine, 3>& volumeSim, int camIndex,  const std::string& name, const std::string& filepath)
+{
+    const auto volDim = volumeSim.getSize();
+    const size_t spitch = volumeSim.getBytesPaddedUpToDim(1);
+    const size_t pitch = volumeSim.getBytesPaddedUpToDim(0);
+
+    const int sampleSize = 3;
+
+    const int xOffset = std::floor(volDim.x() / (sampleSize + 1.0f));
+    const int yOffset = std::floor(volDim.y() / (sampleSize + 1.0f));
+
+    std::vector<std::vector<float>> simPerDepthsPerPts(sampleSize * sampleSize);
+
+    for(int iy = 0; iy < sampleSize; ++iy)
+    {
+        for(int ix = 0; ix < sampleSize; ++ix)
+        {
+            const int x = (ix + 1) * xOffset;
+            const int y = (iy + 1) * yOffset;
+
+            std::vector<float>& simPerDepths = simPerDepthsPerPts.at(iy * sampleSize + ix);
+            simPerDepths.reserve(volDim.z());
+
+            for(int iz = 0; iz < volDim.z(); ++iz)
+            {
+                float sim = float(*get3DBufferAt_h<TSimRefine>(volumeSim.getBuffer(), spitch, pitch, x, y, iz));
+                simPerDepths.push_back(sim);
+            }
+        }
+    }
+
+    std::stringstream ss;
+    {
+        ss << name << "\n";
+        int ptId = 1;
+        for(const std::vector<float>& simPerDepths : simPerDepthsPerPts)
+        {
+            ss << "p" << ptId << ";";
+            for(const float sim : simPerDepths)
+                ss << sim << ";";
+            ss << "\n";
+            ++ptId;
+        }
+    }
+
+    std::ofstream file;
+    file.open(filepath, std::ios_base::app);
+    if(file.is_open())
+        file << ss.str();
+}
 
 } // namespace depthMap
 } // namespace aliceVision

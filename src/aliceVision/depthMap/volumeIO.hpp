@@ -29,7 +29,7 @@ void exportSimilarityVolume(const CudaHostMemoryHeap<TSimRefine, 3>& volumeSim,
 void exportColorVolume(const CudaHostMemoryHeap<float4, 3>& volumeSim, const std::vector<float>& depths, int startDepth, int nbDepths, const mvsUtils::MultiViewParams& mp, int camIndex, int scale, int step, const std::string& filepath);
 
 void exportSimilaritySamplesCSV(const CudaHostMemoryHeap<TSim, 3>& volumeSim, const StaticVector<float>& depths, int camIndex, int scale, int step, const std::string& name, const std::string& filepath);
-
+void exportSimilaritySamplesCSV(const CudaHostMemoryHeap<TSimRefine, 3>& volumeSim, int camIndex, const std::string& name, const std::string& filepath);
 
 } // namespace depthMap
 } // namespace aliceVision
