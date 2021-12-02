@@ -113,12 +113,9 @@ void exportSimilarityVolume(const CudaHostMemoryHeap<TSimRefine, 3>& volumeSim,
                     continue;
 
                 const int relativeDepthIndexOffset = z - ((refineParams.nDepthsToRefine - 1) / 2);
-                const double planeDepth = orignalDepth + (relativeDepthIndexOffset * pixSize); // original depth + z based pixSize offset
+                const double depth = orignalDepth + (relativeDepthIndexOffset * pixSize); // original depth + z based pixSize offset
 
-                const Point3d planen = (mp.iRArr[camIndex] * Point3d(0.0f, 0.0f, 1.0f)).normalize();
-                const Point3d planep = mp.CArr[camIndex] + planen * planeDepth;
-                const Point3d v = (mp.iCamArr[camIndex] * pix).normalize();
-                const Point3d p = linePlaneIntersect(mp.CArr[camIndex], v, planep, planen);
+               const Point3d p = mp.CArr[camIndex] + (mp.iCamArr[camIndex] * pix).normalize() * depth;
 
                 const rgb c = getRGBFromJetColorMap(simValue / maxValue);
                 pointCloud.getLandmarks()[landmarkId] = sfmData::Landmark(Vec3(p.x, p.y, p.z), feature::EImageDescriberType::UNKNOWN, sfmData::Observations(), image::RGBColor(c.r, c.g, c.b));
