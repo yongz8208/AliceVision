@@ -253,39 +253,51 @@ void Refine::refineAndFuseDepthSimMapVolume(const DepthSimMap& depthSimMapSgmUps
         cudaGetDevice(&devid);
         ALICEVISION_LOG_DEBUG("Allocating a volume (x: " << volDim.x() << ", y: " << volDim.y() << ", z: " << volDim.z() << ") on GPU device " << devid << ".");
     }
+
     CudaDeviceMemoryPitched<TSimRefine, 3> volumeRefineSim_dmp(volDim);
 
     _cps.refineDepthSimMapVolume(_rc, volumeRefineSim_dmp, volDim, _tCams.getData(), depthSimMapSgmUpscale, _refineParams);
 
-    //if(_refineParams.exportIntermediateResults)
+    if(_refineParams.exportIntermediateResults)
     {
+        const std::string filepathPrefix = _mp.getDepthMapsFolder() + std::to_string(viewId);
         CudaHostMemoryHeap<TSimRefine, 3> volumeSim_h(volumeRefineSim_dmp.getSize());
         volumeSim_h.copyFrom(volumeRefineSim_dmp);
-        exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, _rc, _refineParams, _mp.getDepthMapsFolder() + std::to_string(viewId) + "_vol_afterRefine.abc");
+        exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, _rc, _refineParams, filepathPrefix + "_vol_afterRefine.abc");
+        exportSimilaritySamplesCSV(volumeSim_h, _rc, "afterRefine", filepathPrefix + "_9p.csv");
         volumeSim_h.deallocate();
     }
 
-    // refine opt
-    // CudaDeviceMemoryPitched<TSimRefine, 3> volumeRefineFiltered_dmp(volDim);
-    // SgmParams sgmParams;
-    // sgmParams.scale == _refineParams.scale;
-    // sgmParams.stepXY == _refineParams.stepXY;
-    // _cps.sgmOptimizeSimVolume(_rc, volumeRefineFiltered_dmp, volumeRefineSim_dmp, volDim, sgmParams);
+    // optimize refine
 
-    //if(_refineParams.exportIntermediateResults)
-    // {
-    //     CudaHostMemoryHeap<TSimRefine, 3> volumeSim_h(volumeRefineFiltered_dmp.getSize());
-    //     volumeSim_h.copyFrom(volumeRefineFiltered_dmp);
-    //     exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, _rc, _refineParams, _mp.getDepthMapsFolder() + std::to_string(viewId) + "_vol_afterRefineOpt.abc");
-    //     volumeSim_h.deallocate();
-    // }
+    if(_refineParams.doRefineFuseVolumeOpt)
+    {
+        CudaDeviceMemoryPitched<TSimRefine, 3> volumeRefineFiltered_dmp(volDim);
+        SgmParams sgmParams;
+        sgmParams.scale = _refineParams.scale;
+        sgmParams.stepXY = _refineParams.stepXY;
+
+        _cps.sgmOptimizeSimVolume(_rc, volumeRefineFiltered_dmp, volumeRefineSim_dmp, volDim, sgmParams);
+
+        volumeRefineSim_dmp.copyFrom(volumeRefineFiltered_dmp); // update volumeRefineSim_dmp, TODO: swap
+        volumeRefineFiltered_dmp.deallocate();
+    }
+
+    if(_refineParams.exportIntermediateResults && _refineParams.doRefineFuseVolumeOpt)
+    {
+        const std::string filepathPrefix = _mp.getDepthMapsFolder() + std::to_string(viewId);
+        CudaHostMemoryHeap<TSimRefine, 3> volumeSim_h(volumeRefineSim_dmp.getSize());
+        volumeSim_h.copyFrom(volumeRefineSim_dmp);
+        exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, _rc, _refineParams, filepathPrefix + "_vol_afterRefineOpt.abc");
+        exportSimilaritySamplesCSV(volumeSim_h, _rc, "afterRefineOpt", filepathPrefix + "_9p.csv");
+        volumeSim_h.deallocate();
+    }
      
     // Retrieve best depth per pixel
     // For each pixel, choose the voxel with the minimal similarity value
     _cps.refineBestDepth(_rc, out_depthSimMapRefinedFused, depthSimMapSgmUpscale, volumeRefineSim_dmp, volDim, _refineParams);
 
     volumeRefineSim_dmp.deallocate();
-    // volumeRefineFiltered_dmp.deallocate();
 }
 
 void Refine::optimizeDepthSimMap(const DepthSimMap& depthSimMapSgmUpscale,     // upscaled SGM depth sim map
@@ -364,7 +376,7 @@ bool Refine::refineRc(const DepthSimMap& sgmDepthSimMap)
         depthSimMapRefinedFused.initJustFromDepthMap(depthSimMapSgmUpscale, 1.0f);
     }
 
-    if(_refineParams.doRefineOpt && _refineParams.nIters != 0)
+    if(_refineParams.doDepthSimMapOpt && _refineParams.nIters != 0)
     {
         optimizeDepthSimMap(depthSimMapSgmUpscale, depthSimMapRefinedFused, _depthSimMap);
     }

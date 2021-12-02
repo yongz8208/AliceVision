@@ -33,8 +33,9 @@ struct RefineParams
   const int stepXY = 1;
   const bool doRefineFuseLegacy = false;
   const bool doRefineFuseVolume = true;
-  const bool interpolateRetrieveBestDepth = false;
-  const bool doRefineOpt = false;
+  const bool doRefineFuseVolumeOpt = true;
+  const bool doDepthSimMapOpt = true;
+  const bool interpolateRetrieveBestDepth = true; // only for refineFuseVolume
 };
 
 } // namespace depthMap
