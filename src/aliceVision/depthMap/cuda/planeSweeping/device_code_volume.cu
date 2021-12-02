@@ -383,12 +383,44 @@ __global__ void volume_refineBestZ_kernel(int rcamCacheId,
     float3 p = get3DPointForPixelAndDepthFromRC(rcamCacheId, make_int2(x, y), originalDepth);
 
     const int relativeDepthIndexOffset = bestZIdx - ((volDimZ - 1) / 2);
-    const float pixSizeOffset = relativeDepthIndexOffset * computePixSize(rcamCacheId, p);
+    const float pixSize = computePixSize(rcamCacheId, p);
+    const float pixSizeOffset = relativeDepthIndexOffset * pixSize;
     const float bestDepth = originalDepth + pixSizeOffset;
 
-    // without depth interpolation
-    *get2DBufferAt(bestDepthMap_d, bestDepthMap_p, x, y) = bestDepth;
-    *get2DBufferAt(bestSimMap_d, bestSimMap_p, x, y) = (bestSim / 255.0f) * 2.0f - 1.0f; // convert from (0, 255) to (-1, +1)
+
+    // without depth interpolation (for debug purpose only)
+    if(!interpolate)
+    {
+        *get2DBufferAt(bestDepthMap_d, bestDepthMap_p, x, y) = bestDepth;
+        *get2DBufferAt(bestSimMap_d, bestSimMap_p, x, y) = (bestSim / 255.0f) * 2.0f - 1.0f; // convert from (0, 255) to (-1, +1)
+        return;
+    }
+
+    // with depth interpolation
+    const int bestZIdx_m1 = max(0, bestZIdx - 1);
+    const int bestZIdx_p1 = min(volDimZ - 1, bestZIdx + 1);
+    const float pixSizeOffset_m1 = (bestZIdx_m1 - ((volDimZ - 1) / 2)) * pixSize; // relative depth index offset m1 * pixSize
+    const float pixSizeOffset_p1 = (bestZIdx_p1 - ((volDimZ - 1) / 2)) * pixSize; // relative depth index offset p1 * pixSize
+
+    float3 depths;
+    depths.x = originalDepth + pixSizeOffset_m1;
+    depths.y = bestDepth;
+    depths.z = originalDepth + pixSizeOffset_p1;
+
+    float3 sims;
+    sims.x = *get3DBufferAt(simVolume, simVolume_s, simVolume_p, x, y, bestZIdx_m1);
+    sims.y = bestSim;
+    sims.z = *get3DBufferAt(simVolume, simVolume_s, simVolume_p, x, y, bestZIdx_p1);
+
+    // convert sims from (0, 255) to (-1, +1)
+    sims.x = (sims.x / 255.0f) * 2.0f - 1.0f;
+    sims.y = (sims.y / 255.0f) * 2.0f - 1.0f;
+    sims.z = (sims.z / 255.0f) * 2.0f - 1.0f;
+
+    // interpolation between the 3 depth candidates
+    *get2DBufferAt(bestDepthMap_d, bestDepthMap_p, x, y) = refineDepthSubPixel(depths, sims);
+    *get2DBufferAt(bestSimMap_d, bestSimMap_p, x, y) = sims.y;
+
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
