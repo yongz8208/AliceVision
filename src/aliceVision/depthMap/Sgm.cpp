@@ -123,6 +123,13 @@ bool Sgm::sgmRc()
         exportSimilaritySamplesCSV(volumeSecBestSim_h, _depths, _rc, _sgmParams.scale, _sgmParams.stepXY, "afterFiltering", _mp.getDepthMapsFolder() + std::to_string(viewId) + "_9p.csv");
     }
 
+    // smooth xyz volume
+
+    if(_sgmParams.smoothXYZVolumeRadius > 0)
+    {
+        _cps.volumeGaussianSmoothXYZ(volumeFilteredSim_dmp, _sgmParams.smoothXYZVolumeRadius);
+    }
+
     // Retrieve best depth per pixel
     // For each pixel, choose the voxel with the minimal similarity value
     _cps.sgmRetrieveBestDepth(_rc, _depthSimMap, volumeFilteredSim_dmp, volDim, _depths, _sgmParams);

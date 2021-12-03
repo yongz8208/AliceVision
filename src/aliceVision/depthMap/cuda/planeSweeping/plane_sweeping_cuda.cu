@@ -947,6 +947,40 @@ void ps_optimizeDepthSimMapGradientDescent(const CameraStruct& rcam,
     copy(out_optimizedDepthSimMap_hmh, optDepthSimMap_dmp);
 }
 
+void ps_volumeGaussianSmoothZ(CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, int radius)
+{
+    const CudaSize<3>& volDim = volSim_dmp.getSize();
+    CudaDeviceMemoryPitched<TSimRefine, 3> volSimSmoothZ_dmp(volDim);
+
+    const dim3 block(32, 1, 1);
+    const dim3 grid(divUp(volDim.x(), block.x), divUp(volDim.y(), block.y), volDim.z());
+
+    volume_gauss_smooth_z_kernel<<<grid, block>>>(
+        volSimSmoothZ_dmp.getBuffer(), volSimSmoothZ_dmp.getBytesPaddedUpToDim(1), volSimSmoothZ_dmp.getBytesPaddedUpToDim(0), 
+        volSim_dmp.getBuffer(), volSim_dmp.getBytesPaddedUpToDim(1), volSim_dmp.getBytesPaddedUpToDim(0), 
+        volDim.x(), volDim.y(), volDim.z(), radius);
+
+    volSim_dmp.copyFrom(volSimSmoothZ_dmp);
+    volSimSmoothZ_dmp.deallocate();
+}
+
+void ps_volumeGaussianSmoothXYZ(CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, int radius)
+{
+    const CudaSize<3>& volDim = volSim_dmp.getSize();
+    CudaDeviceMemoryPitched<TSimRefine, 3> volSimSmoothXYZ_dmp(volDim);
+
+    const dim3 block(32, 1, 1);
+    const dim3 grid(divUp(volDim.x(), block.x), divUp(volDim.y(), block.y), volDim.z());
+
+    volume_gauss_smooth_xyz_kernel<<<grid, block>>>(
+        volSimSmoothXYZ_dmp.getBuffer(), volSimSmoothXYZ_dmp.getBytesPaddedUpToDim(1), volSimSmoothXYZ_dmp.getBytesPaddedUpToDim(0), 
+        volSim_dmp.getBuffer(), volSim_dmp.getBytesPaddedUpToDim(1), volSim_dmp.getBytesPaddedUpToDim(0), 
+        volDim.x(), volDim.y(), volDim.z(), radius);
+
+    volSim_dmp.copyFrom(volSimSmoothXYZ_dmp);
+    volSimSmoothXYZ_dmp.deallocate();
+}
+
 // uchar4 with 0..255 components => float3 with 0..1 components
 inline __device__ __host__ float3 uchar4_to_float3(const uchar4 c)
 {

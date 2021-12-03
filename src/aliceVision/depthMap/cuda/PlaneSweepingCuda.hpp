@@ -151,6 +151,10 @@ public:
                                             const RefineParams& refineParams,
                                             int yFrom, int hPart);
 
+    void volumeGaussianSmoothZ(CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, int radius);
+
+    void volumeGaussianSmoothXYZ(CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, int radius);
+
     /* create object to store intermediate data for repeated use */
     NormalMapping* createNormalMapping();
 

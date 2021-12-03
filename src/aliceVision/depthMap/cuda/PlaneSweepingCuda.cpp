@@ -859,6 +859,28 @@ bool PlaneSweepingCuda::optimizeDepthSimMapGradientDescent(int rc,
     return true;
 }
 
+void PlaneSweepingCuda::volumeGaussianSmoothZ(CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, int radius) 
+{
+    const system::Timer timer;
+
+    ALICEVISION_LOG_INFO("Gaussian 1d Z smooth similarity volume (radius: " << radius << ")");
+
+    ps_volumeGaussianSmoothZ(volSim_dmp, radius);
+
+    ALICEVISION_LOG_INFO("Gaussian 1d Z smooth similarity volume done in: " << timer.elapsedMs() << " ms.");
+}
+
+void PlaneSweepingCuda::volumeGaussianSmoothXYZ(CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, int radius)
+{
+    const system::Timer timer;
+
+    ALICEVISION_LOG_INFO("Gaussian 3d smooth similarity volume (radius: " << radius << ")");
+
+    ps_volumeGaussianSmoothXYZ(volSim_dmp, radius);
+
+    ALICEVISION_LOG_INFO("Gaussian 3d smooth similarity volume done in: " << timer.elapsedMs() << " ms.");
+}
+
 NormalMapping* PlaneSweepingCuda::createNormalMapping()
 {
     return new NormalMapping;

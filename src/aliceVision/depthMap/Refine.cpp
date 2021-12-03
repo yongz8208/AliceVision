@@ -281,16 +281,50 @@ void Refine::refineAndFuseDepthSimMapVolume(const DepthSimMap& depthSimMapSgmUps
 
         volumeRefineSim_dmp.copyFrom(volumeRefineFiltered_dmp); // update volumeRefineSim_dmp, TODO: swap
         volumeRefineFiltered_dmp.deallocate();
+
+        if(_refineParams.exportIntermediateResults)
+        {
+            const std::string filepathPrefix = _mp.getDepthMapsFolder() + std::to_string(viewId);
+            CudaHostMemoryHeap<TSimRefine, 3> volumeSim_h(volumeRefineSim_dmp.getSize());
+            volumeSim_h.copyFrom(volumeRefineSim_dmp);
+            exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, _rc, _refineParams, filepathPrefix + "_vol_afterRefineOpt.abc");
+            exportSimilaritySamplesCSV(volumeSim_h, _rc, "afterRefineOpt", filepathPrefix + "_9p.csv");
+            volumeSim_h.deallocate();
+        }
     }
 
-    if(_refineParams.exportIntermediateResults && _refineParams.doRefineFuseVolumeOpt)
+    // smooth xyz volume
+
+    if(_refineParams.smoothXYZVolumeRadius > 0)
     {
-        const std::string filepathPrefix = _mp.getDepthMapsFolder() + std::to_string(viewId);
-        CudaHostMemoryHeap<TSimRefine, 3> volumeSim_h(volumeRefineSim_dmp.getSize());
-        volumeSim_h.copyFrom(volumeRefineSim_dmp);
-        exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, _rc, _refineParams, filepathPrefix + "_vol_afterRefineOpt.abc");
-        exportSimilaritySamplesCSV(volumeSim_h, _rc, "afterRefineOpt", filepathPrefix + "_9p.csv");
-        volumeSim_h.deallocate();
+        _cps.volumeGaussianSmoothXYZ(volumeRefineSim_dmp, _refineParams.smoothXYZVolumeRadius);
+
+        if(_refineParams.exportIntermediateResults)
+        {
+            const std::string filepathPrefix = _mp.getDepthMapsFolder() + std::to_string(viewId);
+            CudaHostMemoryHeap<TSimRefine, 3> volumeSim_h(volumeRefineSim_dmp.getSize());
+            volumeSim_h.copyFrom(volumeRefineSim_dmp);
+            exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, _rc, _refineParams, filepathPrefix + "_vol_afterXYZSmoothing.abc");
+            exportSimilaritySamplesCSV(volumeSim_h, _rc, "afterXYZSmoothing", filepathPrefix + "_9p.csv");
+            volumeSim_h.deallocate();
+        }
+    }
+
+    // smooth z volume
+
+    if(_refineParams.smoothZVolumeRadius > 0)
+    {
+        _cps.volumeGaussianSmoothZ(volumeRefineSim_dmp, _refineParams.smoothZVolumeRadius);
+
+        if(_refineParams.exportIntermediateResults)
+        {
+            const std::string filepathPrefix = _mp.getDepthMapsFolder() + std::to_string(viewId);
+            CudaHostMemoryHeap<TSimRefine, 3> volumeSim_h(volumeRefineSim_dmp.getSize());
+            volumeSim_h.copyFrom(volumeRefineSim_dmp);
+            exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, _rc, _refineParams, filepathPrefix + "_vol_afterZSmoothing.abc");
+            exportSimilaritySamplesCSV(volumeSim_h, _rc, "afterZSmoothing", filepathPrefix + "_9p.csv");
+            volumeSim_h.deallocate();
+        }
     }
      
     // Retrieve best depth per pixel

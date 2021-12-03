@@ -30,6 +30,7 @@ struct SgmParams
   int maxDepths = 3000;
   int maxDepthsPerTc = 1500;
   int maxSideXY = 700;
+  int smoothXYZVolumeRadius = -1; // if <= 0, do nothing
   double gammaC = 5.5;
   double gammaP = 8.0;
   double p1 = 10;

@@ -21,6 +21,8 @@ struct RefineParams
   int nDepthsToRefine = 31;
   int nSamplesHalf = 150;
   int nIters = 100;
+  int smoothXYZVolumeRadius = -1; // if <= 0, do nothing
+  int smoothZVolumeRadius = -1;   // if <= 0, do nothing
   double sigma = 15.0;
   double gammaC = 15.5;
   double gammaP = 8.0;

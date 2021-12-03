@@ -7,7 +7,7 @@
 #pragma once
 
 #include <aliceVision/depthMap/cuda/deviceCommon/device_matrix.cu>
-
+#include <aliceVision/depthMap/cuda/images/gauss_filter.hpp>
 
 namespace aliceVision {
 namespace depthMap {
@@ -242,6 +242,84 @@ __global__ void volume_refine_kernel(cudaTextureObject_t rc_tex,
     {
         *outSim = TSimRefine(fsim);
     }
+}
+
+__global__ void volume_gauss_smooth_z_kernel(TSimRefine* out_volume_d, int out_volume_s, int out_volume_p, 
+                                             const TSimRefine* volume_d, int volume_s, int volume_p, 
+                                             int volDimX, int volDimY, int volDimZ, int radius)
+{
+    const int vx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int vy = blockIdx.y * blockDim.y + threadIdx.y;
+    const int vz = blockIdx.z;
+
+    const int gaussScale = radius - 1;
+
+    if(vx >= volDimX || vy >= volDimY)
+        return;
+
+    float sum = 0.0f;
+    float sumFactor = 0.0f;
+
+    for(int rz = -radius; rz <= radius; rz++)
+    {
+        const int iz = vz + rz;
+        if((iz < volDimZ) && (iz > 0))
+        {
+            const float value = float(*get3DBufferAt(volume_d, volume_s, volume_p, vx, vy, iz));
+            const float factor = getGauss(gaussScale, rz + radius);
+            sum += value * factor;
+            sumFactor += factor;
+        }
+    }
+
+    *get3DBufferAt(out_volume_d, out_volume_s, out_volume_p, vx, vy, vz) = TSimRefine(sum / sumFactor);
+}
+
+__global__ void volume_gauss_smooth_xyz_kernel(TSimRefine* out_volume_d, int out_volume_s, int out_volume_p,
+                                               const TSimRefine* volume_d, int volume_s, int volume_p,
+                                               int volDimX, int volDimY, int volDimZ, int radius)
+{
+    const int vx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int vy = blockIdx.y * blockDim.y + threadIdx.y;
+    const int vz = blockIdx.z;
+
+    const int gaussScale = radius - 1;
+
+    if(vx >= volDimX || vy >= volDimY)
+        return;
+
+    const int xMinRadius = max(-radius, -vx);
+    const int yMinRadius = max(-radius, -vy);
+    const int zMinRadius = max(-radius, -vz);
+
+    const int xMaxRadius = min(radius, volDimX - vx - 1);
+    const int yMaxRadius = min(radius, volDimY - vy - 1);
+    const int zMaxRadius = min(radius, volDimZ - vz - 1);
+
+    float sum = 0.0f;
+    float sumFactor = 0.0f;
+
+    for(int rx = xMinRadius; rx <= xMaxRadius; rx++)
+    {
+        const int ix = vx + rx;
+
+        for(int ry = yMinRadius; ry <= yMaxRadius; ry++)
+        {
+            const int iy = vy + ry;
+
+            for(int rz = zMinRadius; rz <= zMaxRadius; rz++)
+            {
+                const int iz = vz + rz;
+   
+                const float value = float(*get3DBufferAt(volume_d, volume_s, volume_p, ix, iy, iz));
+                const float factor = getGauss(gaussScale, rx + radius) * getGauss(gaussScale, ry + radius) * getGauss(gaussScale, rz + radius);
+                sum += value * factor;
+                sumFactor += factor;
+            }
+        }
+    }
+
+    *get3DBufferAt(out_volume_d, out_volume_s, out_volume_p, vx, vy, vz) = TSimRefine(sum / sumFactor);
 }
 
 __device__ float depthPlaneToDepth(

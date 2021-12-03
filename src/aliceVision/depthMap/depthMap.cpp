@@ -31,6 +31,7 @@ void getSgmParams(const mvsUtils::MultiViewParams& mp, SgmParams& sgmParams)
     sgmParams.maxDepths = mp.userParams.get<int>("sgm.maxDepths", sgmParams.maxDepths);
     sgmParams.maxDepthsPerTc = mp.userParams.get<int>("sgm.maxDepthsPerTc", sgmParams.maxDepthsPerTc);
     sgmParams.maxSideXY = mp.userParams.get<int>("sgm.maxSideXY", sgmParams.maxSideXY);
+    sgmParams.smoothXYZVolumeRadius = mp.userParams.get<int>("sgm.smoothXYZVolumeRadius", sgmParams.smoothXYZVolumeRadius);
     sgmParams.gammaC = mp.userParams.get<double>("sgm.gammaC", sgmParams.gammaC);
     sgmParams.gammaP = mp.userParams.get<double>("sgm.gammaP", sgmParams.gammaP);
     sgmParams.p1 = mp.userParams.get<double>("sgm.p1", sgmParams.p1);
@@ -49,6 +50,8 @@ void getRefineParams(const mvsUtils::MultiViewParams& mp, RefineParams& refinePa
     refineParams.nDepthsToRefine = mp.userParams.get<int>("refine.nDepthsToRefine", refineParams.nDepthsToRefine);
     refineParams.nSamplesHalf = mp.userParams.get<int>("refine.nSamplesHalf", refineParams.nSamplesHalf);
     refineParams.nIters = mp.userParams.get<int>("refine.nIters", refineParams.nIters);
+    refineParams.smoothXYZVolumeRadius = mp.userParams.get<int>("refine.smoothXYZVolumeRadius", refineParams.smoothXYZVolumeRadius);
+    refineParams.smoothZVolumeRadius = mp.userParams.get<int>("refine.smoothZVolumeRadius", refineParams.smoothZVolumeRadius);
     refineParams.sigma = mp.userParams.get<double>("refine.sigma", refineParams.sigma);
     refineParams.gammaC = mp.userParams.get<double>("refine.gammaC", refineParams.gammaC);
     refineParams.gammaP = mp.userParams.get<double>("refine.gammaP", refineParams.gammaP);

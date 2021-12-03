@@ -112,6 +112,8 @@ int aliceVision_main(int argc, char* argv[])
             "Semi Global Matching: Use landmarks from SfM to define the ranges for the plane sweeping.")
         ("sgmFilteringAxes", po::value<std::string>(&sgmParams.filteringAxes)->default_value(sgmParams.filteringAxes),
             "Semi Global Matching: Filtering axes for the 3D volume.")
+        ("sgmSmoothXYZVolumeRadius", po::value<int>(&sgmParams.smoothXYZVolumeRadius)->default_value(sgmParams.smoothXYZVolumeRadius),
+            "Semi Global Matching: Radius of the similarity 3d gaussian smooth to perform (if <= 0, do nothing).")
         ("refineMaxTCams", po::value<int>(&refineParams.maxTCams)->default_value(refineParams.maxTCams),
             "Refine: Number of neighbour cameras.")
         ("refineNSamplesHalf", po::value<int>(&refineParams.nSamplesHalf)->default_value(refineParams.nSamplesHalf),
@@ -128,6 +130,10 @@ int aliceVision_main(int argc, char* argv[])
             "Refine: GammaC threshold.")
         ("refineGammaP", po::value<double>(&refineParams.gammaP)->default_value(refineParams.gammaP),
             "Refine: GammaP threshold.")
+        ("refineSmoothXYZVolumeRadius", po::value<int>(&refineParams.smoothXYZVolumeRadius)->default_value(refineParams.smoothXYZVolumeRadius),
+            "Refine: Radius of the similarity 3d gaussian smooth to perform (if <= 0, do nothing).")
+        ("refineSmoothZVolumeRadius", po::value<int>(&refineParams.smoothZVolumeRadius)->default_value(refineParams.smoothZVolumeRadius),
+            "Refine: Radius of the similarity 1d Z gaussian smooth to perform (if <= 0, do nothing).")
         ("refineUseTcOrRcPixSize", po::value<bool>(&refineParams.useTcOrRcPixSize)->default_value(refineParams.useTcOrRcPixSize),
             "Refine: Use current camera pixel size or minimum pixel size of neighbour cameras.")
         ("exportIntermediateResults", po::value<bool>(&exportIntermediateResults)->default_value(exportIntermediateResults),
@@ -223,6 +229,7 @@ int aliceVision_main(int argc, char* argv[])
     mp.userParams.put("sgm.maxDepthsPerTc", sgmParams.maxDepthsPerTc);
     mp.userParams.put("sgm.useSfmSeeds", sgmParams.useSfmSeeds);
     mp.userParams.put("sgm.filteringAxes", sgmParams.filteringAxes);
+    mp.userParams.put("sgm.smoothXYZVolumeRadius", sgmParams.smoothXYZVolumeRadius);
     mp.userParams.put("sgm.exportIntermediateResults", exportIntermediateResults);
 
     // Refine Parameters
@@ -234,6 +241,8 @@ int aliceVision_main(int argc, char* argv[])
     mp.userParams.put("refine.sigma", refineParams.sigma);
     mp.userParams.put("refine.gammaC", refineParams.gammaC);
     mp.userParams.put("refine.gammaP", refineParams.gammaP);
+    mp.userParams.put("refine.smoothXYZVolumeRadius", refineParams.smoothXYZVolumeRadius);
+    mp.userParams.put("refine.smoothZVolumeRadius", refineParams.smoothZVolumeRadius);
     mp.userParams.put("refine.useTcOrRcPixSize", refineParams.useTcOrRcPixSize);
     mp.userParams.put("refine.exportIntermediateResults", exportIntermediateResults);
 

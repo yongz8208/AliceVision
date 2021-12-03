@@ -165,6 +165,10 @@ void ps_optimizeDepthSimMapGradientDescent(const CameraStruct& rcam,
                                            const RefineParams& refineParams,
                                            int CUDAdeviceNo, int nbCamsAllocated, int yFrom);
 
+void ps_volumeGaussianSmoothZ(CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, int radius);
+
+void ps_volumeGaussianSmoothXYZ(CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, int radius);
+
 void ps_getSilhoueteMap(
     CudaHostMemoryHeap<bool, 2>* omap_hmh,
     int width, int height,
