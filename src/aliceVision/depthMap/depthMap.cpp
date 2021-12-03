@@ -38,6 +38,7 @@ void getSgmParams(const mvsUtils::MultiViewParams& mp, SgmParams& sgmParams)
     sgmParams.p2Weighting = mp.userParams.get<double>("sgm.p2Weighting", sgmParams.p2Weighting);
     sgmParams.filteringAxes = mp.userParams.get<std::string>("sgm.filteringAxes", sgmParams.filteringAxes);
     sgmParams.useSfmSeeds = mp.userParams.get<bool>("sgm.useSfmSeeds", sgmParams.useSfmSeeds);
+    sgmParams.doVolumeOptimization = mp.userParams.get<bool>("sgm.doVolumeOptimization", sgmParams.doVolumeOptimization);
     sgmParams.exportIntermediateResults = mp.userParams.get<bool>("sgm.exportIntermediateResults", sgmParams.exportIntermediateResults);
 }
 
@@ -56,6 +57,11 @@ void getRefineParams(const mvsUtils::MultiViewParams& mp, RefineParams& refinePa
     refineParams.gammaC = mp.userParams.get<double>("refine.gammaC", refineParams.gammaC);
     refineParams.gammaP = mp.userParams.get<double>("refine.gammaP", refineParams.gammaP);
     refineParams.useTcOrRcPixSize = mp.userParams.get<bool>("refine.useTcOrRcPixSize", refineParams.useTcOrRcPixSize);
+    refineParams.doRefineFuse = mp.userParams.get<bool>("refine.doRefineFuse", refineParams.doRefineFuse);
+    refineParams.doRefineFuseLegacy = mp.userParams.get<bool>("refine.doRefineFuseLegacy", refineParams.doRefineFuseLegacy);
+    refineParams.doVolumeOptimization = mp.userParams.get<bool>("refine.doVolumeOptimization", refineParams.doVolumeOptimization);
+    refineParams.doDepthSimMapOptimization = mp.userParams.get<bool>("refine.doDepthSimMapOptimization", refineParams.doDepthSimMapOptimization);
+    refineParams.interpolateRetrieveBestDepth = mp.userParams.get<bool>("refine.interpolateRetrieveBestDepth", refineParams.interpolateRetrieveBestDepth);
     refineParams.exportIntermediateResults = mp.userParams.get<bool>("refine.exportIntermediateResults", refineParams.exportIntermediateResults);
 }
 

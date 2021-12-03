@@ -27,17 +27,17 @@ struct RefineParams
   double gammaC = 15.5;
   double gammaP = 8.0;
   bool useTcOrRcPixSize = false;
+  bool doRefineFuse = true;
+  bool doRefineFuseLegacy = false;
+  bool doVolumeOptimization = true;
+  bool doDepthSimMapOptimization = true;
+  bool interpolateRetrieveBestDepth = true; // only for refineFuseVolume (not legacy)
   bool exportIntermediateResults = false;
 
   // constant parameters
 
   const int scale = 1; // should remain at 1 for now, some Refine functions do not support this parameter
   const int stepXY = 1;
-  const bool doRefineFuseLegacy = false;
-  const bool doRefineFuseVolume = true;
-  const bool doRefineFuseVolumeOpt = true;
-  const bool doDepthSimMapOpt = true;
-  const bool interpolateRetrieveBestDepth = true; // only for refineFuseVolume
 };
 
 } // namespace depthMap

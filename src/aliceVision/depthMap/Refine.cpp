@@ -270,7 +270,7 @@ void Refine::refineAndFuseDepthSimMapVolume(const DepthSimMap& depthSimMapSgmUps
 
     // optimize refine
 
-    if(_refineParams.doRefineFuseVolumeOpt)
+    if(_refineParams.doVolumeOptimization)
     {
         CudaDeviceMemoryPitched<TSimRefine, 3> volumeRefineFiltered_dmp(volDim);
         SgmParams sgmParams;
@@ -393,11 +393,11 @@ bool Refine::refineRc(const DepthSimMap& sgmDepthSimMap)
 
     DepthSimMap depthSimMapRefinedFused(_rc, _mp, 1, 1); // depthSimMapPhoto
 
-    if(_refineParams.doRefineFuseLegacy || _refineParams.doRefineFuseVolume)
+    if(_refineParams.doRefineFuse)
     {
         if(_refineParams.doRefineFuseLegacy)
           refineAndFuseDepthSimMap(depthSimMapSgmUpscale, depthSimMapRefinedFused);
-        else if(_refineParams.doRefineFuseVolume)
+        else
           refineAndFuseDepthSimMapVolume(depthSimMapSgmUpscale, depthSimMapRefinedFused);
 
         if(_refineParams.exportIntermediateResults)
@@ -410,7 +410,7 @@ bool Refine::refineRc(const DepthSimMap& sgmDepthSimMap)
         depthSimMapRefinedFused.initJustFromDepthMap(depthSimMapSgmUpscale, 1.0f);
     }
 
-    if(_refineParams.doDepthSimMapOpt && _refineParams.nIters != 0)
+    if(_refineParams.doDepthSimMapOptimization && _refineParams.nIters != 0)
     {
         optimizeDepthSimMap(depthSimMapSgmUpscale, depthSimMapRefinedFused, _depthSimMap);
     }

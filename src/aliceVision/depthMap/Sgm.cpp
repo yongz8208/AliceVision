@@ -105,7 +105,7 @@ bool Sgm::sgmRc()
     // So it downweights local minimums that are not supported by their neighborhood.
     // this is here for experimental reason ... to show how SGGC work on non
     // optimized depthmaps ... it must equals to true in normal case
-    if(_sgmParams.doSgmOptimizeVolume)                      
+    if(_sgmParams.doVolumeOptimization)                      
     {
         _cps.sgmOptimizeSimVolume(_rc, volumeFilteredSim_dmp, volumeSecBestSim_dmp, volDim, _sgmParams);
     }

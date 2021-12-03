@@ -37,6 +37,7 @@ struct SgmParams
   double p2Weighting = 100.0;
   std::string filteringAxes = "YX";
   bool useSfmSeeds = true;
+  bool doVolumeOptimization = true;
   bool exportIntermediateResults = false;
 
   // constant parameters
@@ -50,7 +51,6 @@ struct SgmParams
   const int rcDepthsCompStep = 6;
   const double seedsRangeInflate = 0.2;
   const double seedsRangePercentile = 0.999;
-  const bool doSgmOptimizeVolume = true;
   const bool interpolateRetrieveBestDepth = false;
   const bool saveDepthsToSweepTxtFile = false;
 };

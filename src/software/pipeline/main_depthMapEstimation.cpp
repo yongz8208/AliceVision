@@ -110,6 +110,8 @@ int aliceVision_main(int argc, char* argv[])
             "Semi Global Matching: Max number of depths to sweep in the similarity volume per Rc/Tc cameras.")
         ("sgmUseSfmSeeds", po::value<bool>(&sgmParams.useSfmSeeds)->default_value(sgmParams.useSfmSeeds),
             "Semi Global Matching: Use landmarks from SfM to define the ranges for the plane sweeping.")
+        ("sgmDoVolumeOptimization", po::value<bool>(&sgmParams.doVolumeOptimization)->default_value(sgmParams.doVolumeOptimization),
+            "Semi Global Matching: Perfom similarity volume optimization.")
         ("sgmFilteringAxes", po::value<std::string>(&sgmParams.filteringAxes)->default_value(sgmParams.filteringAxes),
             "Semi Global Matching: Filtering axes for the 3D volume.")
         ("sgmSmoothXYZVolumeRadius", po::value<int>(&sgmParams.smoothXYZVolumeRadius)->default_value(sgmParams.smoothXYZVolumeRadius),
@@ -136,6 +138,16 @@ int aliceVision_main(int argc, char* argv[])
             "Refine: Radius of the similarity 1d Z gaussian smooth to perform (if <= 0, do nothing).")
         ("refineUseTcOrRcPixSize", po::value<bool>(&refineParams.useTcOrRcPixSize)->default_value(refineParams.useTcOrRcPixSize),
             "Refine: Use current camera pixel size or minimum pixel size of neighbour cameras.")
+        ("refineDoRefineFuse", po::value<bool>(&refineParams.doRefineFuse)->default_value(refineParams.doRefineFuse),
+            "Refine: Perfom RefineFuse algorithm.")
+        ("refineDoRefineFuseLegacy", po::value<bool>(&refineParams.doRefineFuseLegacy)->default_value(refineParams.doRefineFuseLegacy),
+            "Refine: Perfom RefineFuse legacy algorithm.")
+        ("refineDoVolumeOptimization", po::value<bool>(&refineParams.doVolumeOptimization)->default_value(refineParams.doVolumeOptimization),
+            "Refine: Perfom similarity volume optimization.")
+        ("refineDoDepthSimMapOptimization", po::value<bool>(&refineParams.doDepthSimMapOptimization)->default_value(refineParams.doDepthSimMapOptimization),
+            "Refine: Perfom depth/sim map optimization.")
+        ("refineInterpolateRetrieveBestDepth", po::value<bool>(&refineParams.interpolateRetrieveBestDepth)->default_value(refineParams.interpolateRetrieveBestDepth),
+            "Refine: interpolate retrieve best depth.")
         ("exportIntermediateResults", po::value<bool>(&exportIntermediateResults)->default_value(exportIntermediateResults),
             "Export intermediate results from the SGM and Refine steps.")
         ("nbGPUs", po::value<int>(&nbGPUs)->default_value(nbGPUs),
@@ -230,6 +242,7 @@ int aliceVision_main(int argc, char* argv[])
     mp.userParams.put("sgm.useSfmSeeds", sgmParams.useSfmSeeds);
     mp.userParams.put("sgm.filteringAxes", sgmParams.filteringAxes);
     mp.userParams.put("sgm.smoothXYZVolumeRadius", sgmParams.smoothXYZVolumeRadius);
+    mp.userParams.put("sgm.doVolumeOptimization", sgmParams.doVolumeOptimization);
     mp.userParams.put("sgm.exportIntermediateResults", exportIntermediateResults);
 
     // Refine Parameters
@@ -244,6 +257,11 @@ int aliceVision_main(int argc, char* argv[])
     mp.userParams.put("refine.smoothXYZVolumeRadius", refineParams.smoothXYZVolumeRadius);
     mp.userParams.put("refine.smoothZVolumeRadius", refineParams.smoothZVolumeRadius);
     mp.userParams.put("refine.useTcOrRcPixSize", refineParams.useTcOrRcPixSize);
+    mp.userParams.put("refine.doRefineFuse", refineParams.doRefineFuse);
+    mp.userParams.put("refine.doRefineFuseLegacy", refineParams.doRefineFuseLegacy);
+    mp.userParams.put("refine.doVolumeOptimization", refineParams.doVolumeOptimization);
+    mp.userParams.put("refine.doDepthSimMapOptimization", refineParams.doDepthSimMapOptimization);
+    mp.userParams.put("refine.interpolateRetrieveBestDepth", refineParams.interpolateRetrieveBestDepth);
     mp.userParams.put("refine.exportIntermediateResults", exportIntermediateResults);
 
     std::vector<int> cams;
