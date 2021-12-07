@@ -31,7 +31,7 @@ struct RefineParams
   bool doRefineFuseLegacy = false;
   bool doVolumeOptimization = true;
   bool doDepthSimMapOptimization = true;
-  bool interpolateRetrieveBestDepth = true; // only for refineFuseVolume (not legacy)
+  bool interpolateRetrieveBestDepth = false; // only for refineFuseVolume (not legacy)
   bool exportIntermediateResults = false;
 
   // constant parameters

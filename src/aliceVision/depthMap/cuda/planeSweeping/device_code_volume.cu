@@ -56,15 +56,15 @@ __global__ void volume_initFromSimMap_kernel(TSimRefine* volume, int volume_s, i
     if(vx >= volDimX || vy >= volDimY)
         return;
 
-    if(vz == zIndex)
-    {
-        // const float fsim = *get2DBufferAt(simMap, simMap_p, vx, vy) * 255.0f; 
-        *get3DBufferAt(volume, volume_s, volume_p, vx, vy, vz) = TSimRefine(255.0f); // TODO: simMap not used, here simMap is pixSize map
-    }
-    else
-    {
+//    if(vz == zIndex)
+//    {
+//        // const float fsim = *get2DBufferAt(simMap, simMap_p, vx, vy) * 255.0f;
+//        *get3DBufferAt(volume, volume_s, volume_p, vx, vy, vz) = TSimRefine(255.0f); // TODO: simMap not used, here simMap is pixSize map
+//    }
+//    else
+//    {
         *get3DBufferAt(volume, volume_s, volume_p, vx, vy, vz) = TSimRefine(255.0f);
-    }
+//    }
 }
 
 __global__ void volume_slice_kernel(

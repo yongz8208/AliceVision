@@ -436,8 +436,8 @@ void PlaneSweepingCuda::computeDepthSimMapVolume(int rc,
 
     for(int tci = 0; tci < tcs.size(); ++tci)
     {
-        vol.WaitSweepStream(tci);
-        cudaStream_t stream = vol.SweepStream(tci);
+        //vol.WaitSweepStream(tci);
+        cudaStream_t stream = 0; //vol.SweepStream(tci);
 
         const system::Timer timerPerTc;
 
@@ -645,8 +645,8 @@ void PlaneSweepingCuda::refineDepthSimMapVolume(int rc,
   
     for(int i = 0; i < tCams.size(); ++i)
     {
-        vol.WaitSweepStream(i);
-        cudaStream_t stream = vol.SweepStream(i);
+        //vol.WaitSweepStream(i);
+        cudaStream_t stream = 0;//vol.SweepStream(i);
 
         const system::Timer timerPerTc;
 
@@ -794,21 +794,36 @@ bool PlaneSweepingCuda::fuseDepthSimMapsGaussianKernelVoting(int wPart, int hPar
             }
         }
     }
-
+/*
     CudaHostMemoryHeap<float2, 2> depthSimMap_hmh(depthSimMapPartDim);
 
     ps_fuseDepthSimMapsGaussianKernelVoting(wPart, hPart, 
                                             &depthSimMap_hmh, 
                                             dataMaps_hmh, dataMaps.size(), 
                                             refineParams);
+  */
     for(int y = 0; y < hPart; ++y)
     {
         for(int x = 0; x < wPart; ++x)
         {
-            const float2& depthSim_hmh = depthSimMap_hmh(x, y);
+            //const float2& depthSim_hmh = depthSimMap_hmh(x, y);
             DepthSim& out_depthSim = out_depthSimMap[y * wPart + x];
-            out_depthSim.depth = depthSim_hmh.x;
-            out_depthSim.sim = depthSim_hmh.y;
+            float bestSim = 255.f;
+            float bestDepth = -1.f;
+
+            for(int c = 0; c < dataMaps.size(); ++c)
+            {
+              const DepthSim& c_depthSim = (*dataMaps[c])[y * wPart + x];
+
+              if(c_depthSim.sim < bestSim)
+              {
+                bestSim = c_depthSim.sim;
+                bestDepth = c_depthSim.depth;
+              }
+            }
+
+            out_depthSim.depth = bestDepth;
+            out_depthSim.sim = bestSim;
         }
     }
 
