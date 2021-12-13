@@ -120,7 +120,7 @@ void ps_refineBestDepth(int rcamCacheId,
                         const CudaDeviceMemoryPitched<float, 2>& originalDepthMap_dmp,
                         const CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, 
                         const CudaSize<3>& volDim,
-                        int scaleStep, bool interpolate);
+                        const RefineParams& refineParams);
 
 int ps_listCUDADevices(bool verbose);
 

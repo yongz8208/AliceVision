@@ -728,7 +728,7 @@ void PlaneSweepingCuda::refineBestDepth(int rc,
                        originalDepthMap_dmp,
                        volSim_dmp, 
                        volDim, 
-                       scaleStep, refineParams.interpolateRetrieveBestDepth);
+                       refineParams);
 
     CudaHostMemoryHeap<float, 2> bestDepthMap_hmh(depthSimMapDim);
     bestDepthMap_hmh.copyFrom(bestDepthMap_dmp);
@@ -794,24 +794,27 @@ bool PlaneSweepingCuda::fuseDepthSimMapsGaussianKernelVoting(int wPart, int hPar
             }
         }
     }
-/*
+
     CudaHostMemoryHeap<float2, 2> depthSimMap_hmh(depthSimMapPartDim);
 
     ps_fuseDepthSimMapsGaussianKernelVoting(wPart, hPart, 
                                             &depthSimMap_hmh, 
                                             dataMaps_hmh, dataMaps.size(), 
                                             refineParams);
-  */
+ 
     for(int y = 0; y < hPart; ++y)
     {
         for(int x = 0; x < wPart; ++x)
         {
-            //const float2& depthSim_hmh = depthSimMap_hmh(x, y);
+            const float2& depthSim_hmh = depthSimMap_hmh(x, y);
             DepthSim& out_depthSim = out_depthSimMap[y * wPart + x];
+            out_depthSim.depth = depthSim_hmh.x;
+            out_depthSim.sim = depthSim_hmh.y;
+            /*
             float bestSim = 255.f;
             float bestDepth = -1.f;
 
-            for(int c = 0; c < dataMaps.size(); ++c)
+            for(int c = 1; c < dataMaps.size(); ++c) // 0 is reference depth / pixSize
             {
               const DepthSim& c_depthSim = (*dataMaps[c])[y * wPart + x];
 
@@ -824,6 +827,7 @@ bool PlaneSweepingCuda::fuseDepthSimMapsGaussianKernelVoting(int wPart, int hPar
 
             out_depthSim.depth = bestDepth;
             out_depthSim.sim = bestSim;
+            */
         }
     }
 

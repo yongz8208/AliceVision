@@ -410,6 +410,97 @@ __global__ void volume_retrieveBestZ_kernel(
   *get2DBufferAt(bestSimM, bestSimM_s, x, y) = sims.y;
 }
 
+__global__ void volume_refineFuseBestZ_kernel(int rcamCacheId, 
+                                              float* bestDepthMap_d, int bestDepthMap_p,
+                                              float* bestSimMap_d, int bestSimMap_p, 
+                                              const float* originalDepthMap_d, int originalDepthMap_p, 
+                                              const TSimRefine* simVolume, int simVolume_s, int simVolume_p, 
+                                              int volDimX, int volDimY, int volDimZ, int volScaleStepXY,
+                                              float samplesPerPixSize, float twoTimesSigmaPowerTwo, float nbSamplesHalf,
+                                              bool interpolate)
+{
+    const int vx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int vy = blockIdx.y * blockDim.y + threadIdx.y;
+
+    const int x = vx * volScaleStepXY;
+    const int y = vy * volScaleStepXY;
+
+    if(vx >= volDimX || vy >= volDimY)
+        return;
+
+    const float originalDepth = *get2DBufferAt(originalDepthMap_d, originalDepthMap_p, x, y); // input original depth
+
+    if(originalDepth < 0.0f) // original depth invalid or masked
+    {
+        *get2DBufferAt(bestDepthMap_d, bestDepthMap_p, x, y) = originalDepth; // -1 (invalid) or -2 (masked)
+        *get2DBufferAt(bestSimMap_d, bestSimMap_p, x, y) = 1.0f;              // similarity between (-1, +1)
+        return;
+    }
+
+    // find best z sample per pixel
+    float bestSampleSim = 99999.f;
+    int bestSampleOffsetIndex = 0;
+
+    for(int s = -nbSamplesHalf; s <= nbSamplesHalf; ++s)
+    {
+        float sampleSim = 0.0f;
+
+        for(int vz = 0; vz < volDimZ; ++vz)
+        {
+            const int rz = (vz - ((volDimZ - 1) / 2)); // depth relative index offset
+            const int zs = rz * samplesPerPixSize;     // depth relative samples offset
+
+            float fsim = (float(*get3DBufferAt(simVolume, simVolume_s, simVolume_p, vx, vy, vz)) / 255.f) * 2 - 1; // converted from (0,255) to (-1,1)
+
+            if(interpolate) // for now, average
+            {
+                int nbNeighbors = 0;
+                const int vz_m1 = vz - 1;
+                const int vz_p1 = vz + 1;
+
+                if(vz_m1 >= 0)
+                {
+                    fsim += (float(*get3DBufferAt(simVolume, simVolume_s, simVolume_p, vx, vy, vz_m1)) / 255.f) * 2 - 1; // converted from (0,255) to (-1,1)
+                    ++nbNeighbors;
+                }
+
+                if(vz_p1 < volDimZ)
+                {
+                    fsim += (float(*get3DBufferAt(simVolume, simVolume_s, simVolume_p, vx, vy, vz_p1)) / 255.f) * 2 - 1; // converted from (0,255) to (-1,1)
+                    ++nbNeighbors;
+                }
+                
+                fsim = fsim / (1 + nbNeighbors);
+
+            }
+
+            const float fsimFiltered = -sigmoid(0.0f, 1.0f, 0.7f, -0.7f, fsim);
+
+            sampleSim += fsimFiltered * expf(-((zs - s) * (zs - s)) / twoTimesSigmaPowerTwo);
+        }
+
+        if(sampleSim < bestSampleSim)
+        {
+            bestSampleSim = sampleSim;
+            bestSampleOffsetIndex = s;
+        }
+    }
+
+    // get rc 3d point at original depth (z center)
+    const float3 p = get3DPointForPixelAndDepthFromRC(rcamCacheId, make_int2(x, y), originalDepth);
+    const float sampleSize = computePixSize(rcamCacheId, p) / samplesPerPixSize;
+    const float sampleSizeOffset = bestSampleOffsetIndex * sampleSize;
+    const float bestDepth = originalDepth + sampleSizeOffset;
+
+    // without depth interpolation (for debug purpose only)
+    //if(!interpolate)
+    {
+        *get2DBufferAt(bestDepthMap_d, bestDepthMap_p, x, y) = bestDepth;
+        *get2DBufferAt(bestSimMap_d, bestSimMap_p, x, y) = bestSampleSim;
+        return;
+    }
+}
+
 
 __global__ void volume_refineBestZ_kernel(int rcamCacheId, 
                                           float* bestDepthMap_d, int bestDepthMap_p, 

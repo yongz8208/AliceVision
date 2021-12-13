@@ -384,12 +384,15 @@ void ps_refineBestDepth(int rcamCacheId,
                         const CudaDeviceMemoryPitched<float, 2>& originalDepthMap_dmp,
                         const CudaDeviceMemoryPitched<TSimRefine, 3>& volSim_dmp, 
                         const CudaSize<3>& volDim, 
-                        int scaleStep, bool interpolate)
+                        const RefineParams& refineParams)
 {
     const int blockSize = 8;
     const dim3 block(blockSize, blockSize, 1);
     const dim3 grid(divUp(volDim.x(), blockSize), divUp(volDim.y(), blockSize), 1);
 
+    const float volScaleStepXY = refineParams.scale * refineParams.stepXY;
+
+    /*
     volume_refineBestZ_kernel<<<grid, block>>>(
       rcamCacheId,
       bestDepthMap_dmp.getBuffer(),
@@ -405,6 +408,29 @@ void ps_refineBestDepth(int rcamCacheId,
       int(volDim.z()), 
       scaleStep,
       interpolate);
+    */
+
+    const float samplesPerPixSize = float(refineParams.nSamplesHalf / ((refineParams.nDepthsToRefine - 1) / 2));
+    const float twoTimesSigmaPowerTwo = float(2.0 * refineParams.sigma * refineParams.sigma);
+
+    volume_refineFuseBestZ_kernel<<<grid, block>>>(
+      rcamCacheId,
+      bestDepthMap_dmp.getBuffer(),
+      bestDepthMap_dmp.getBytesPaddedUpToDim(0),
+      bestSimMap_dmp.getBuffer(),
+      bestSimMap_dmp.getBytesPaddedUpToDim(0), 
+      originalDepthMap_dmp.getBuffer(), 
+      originalDepthMap_dmp.getBytesPaddedUpToDim(0),
+      volSim_dmp.getBuffer(),
+      volSim_dmp.getBytesPaddedUpToDim(1), volSim_dmp.getBytesPaddedUpToDim(0), 
+      int(volDim.x()), 
+      int(volDim.y()), 
+      int(volDim.z()), 
+      volScaleStepXY,
+      samplesPerPixSize,
+      twoTimesSigmaPowerTwo,
+      refineParams.nSamplesHalf, 
+      refineParams.interpolateRetrieveBestDepth);
 }
 
 
@@ -722,15 +748,15 @@ void ps_refineRcDepthMap(const CameraStruct& rcam,
     }
     */
 
-    //CudaDeviceMemoryPitched<float3, 2> lastThreeSimsMap_dmp(CudaSize<2>(wPart, rcHeight));
-    //CudaDeviceMemoryPitched<float, 2> simMap_dmp(CudaSize<2>(wPart, rcHeight));
+    CudaDeviceMemoryPitched<float3, 2> lastThreeSimsMap_dmp(CudaSize<2>(wPart, rcHeight));
+    CudaDeviceMemoryPitched<float, 2> simMap_dmp(CudaSize<2>(wPart, rcHeight));
 
-    //{
+    {
         // Set best sim map into lastThreeSimsMap_dmp.y
-        // refine_setLastThreeSimsMap_kernel<<<grid, block>>>(
-        //     lastThreeSimsMap_dmp.getBuffer(), lastThreeSimsMap_dmp.getPitch(),
-        //     bestSimMap_dmp.getBuffer(), bestSimMap_dmp.getPitch(),
-        //     wPart, rcHeight, 1);
+         refine_setLastThreeSimsMap_kernel<<<grid, block>>>(
+             lastThreeSimsMap_dmp.getBuffer(), lastThreeSimsMap_dmp.getPitch(),
+             bestSimMap_dmp.getBuffer(), bestSimMap_dmp.getPitch(),
+             wPart, rcHeight, 1);
         /*
         // Compute NCC for depth-1
         refine_compYKNCCSimMapPatch_kernel<<<grid, block>>>(
@@ -755,8 +781,8 @@ void ps_refineRcDepthMap(const CameraStruct& rcam,
             simMap_dmp.getBuffer(), simMap_dmp.getPitch(),
             wPart, rcHeight, 1);
         */
-    // }
-    /*
+    }
+   
     {
         // Compute NCC for depth-1
         refine_compYKNCCSimMapPatch_kernel<<<grid, block>>>(
@@ -820,9 +846,9 @@ void ps_refineRcDepthMap(const CameraStruct& rcam,
 
     copy(out_simMap_hmh, wPart, rcHeight, bestSimMap_dmp);
     copy(inout_depthMap_hmh, wPart, rcHeight, bestDptMap_dmp);
-    */
-    copy(out_simMap_hmh, wPart, rcHeight, bestSimMap_dmp);
-    copy(inout_depthMap_hmh, wPart, rcHeight, bestDptMap_dmp);
+   
+   // copy(out_simMap_hmh, wPart, rcHeight, bestSimMap_dmp);
+   // copy(inout_depthMap_hmh, wPart, rcHeight, bestDptMap_dmp);
 }
 
 /**

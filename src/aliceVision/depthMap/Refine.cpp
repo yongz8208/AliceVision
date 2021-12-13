@@ -149,10 +149,10 @@ void Refine::refineAndFuseDepthSimMap(const DepthSimMap& depthSimMapSgmUpscale, 
     const int h = _mp.getHeight(_rc);
 
     StaticVector<const DepthSimMap*> dataMaps;
-    dataMaps.reserve(_tCams.size()); //+1
+    dataMaps.reserve(_tCams.size() + 1);
 
     // Put the raw upscaled SGM result first:
-    //dataMaps.push_back(&depthSimMapSgmUpscale); // DO NOT ERASE !
+    dataMaps.push_back(&depthSimMapSgmUpscale); // DO NOT ERASE !
 
     for(int c = 0; c < _tCams.size(); ++c)
     {
