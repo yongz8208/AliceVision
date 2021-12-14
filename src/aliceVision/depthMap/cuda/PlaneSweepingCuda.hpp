@@ -34,7 +34,7 @@ namespace depthMap {
     using TSim = unsigned char;
 #endif
 
-using TSimRefine = unsigned char;
+using TSimRefine = float;
 
 /*********************************************************************************
  * CamSelection

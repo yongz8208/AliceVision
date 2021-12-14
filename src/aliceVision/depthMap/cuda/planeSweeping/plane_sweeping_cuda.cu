@@ -501,6 +501,20 @@ void SimilarityVolume::initOutputVolumes(
       _dimX, _dimY);
 }
 
+void SimilarityVolume::initOutputVolume(
+    CudaDeviceMemoryPitched<TSimRefine, 3>& volBestSim_dmp)
+{
+  const dim3 block(32, 4, 1);
+  const dim3 grid(divUp(_dimX, block.x), divUp(_dimY, block.y), _dimZ);
+
+  volume_init_kernel
+    <<<grid, block, 0>>>
+    (volBestSim_dmp.getBuffer(),
+      volBestSim_dmp.getBytesPaddedUpToDim(1),
+      volBestSim_dmp.getBytesPaddedUpToDim(0),
+      _dimX, _dimY);
+}
+
 void SimilarityVolume::initFromSimMap(CudaDeviceMemoryPitched<TSimRefine, 3>& volume_dmp,
                                       const CudaHostMemoryHeap<float, 2>& simMap_hmh,
                                       int zIndex,
@@ -521,6 +535,22 @@ void SimilarityVolume::initFromSimMap(CudaDeviceMemoryPitched<TSimRefine, 3>& vo
 
     // deallocate simMap on device
     simMap_dmp.deallocate();
+}
+
+void SimilarityVolume::addMin(CudaDeviceMemoryPitched<TSimRefine, 3>& out_volume_dmp,
+                              const CudaDeviceMemoryPitched<TSimRefine, 3>& volume_dmp)
+{
+  const dim3 block(32, 4, 1);
+  const dim3 grid(divUp(_dimX, block.x), divUp(_dimY, block.y), _dimZ);
+
+  volume_addMin_kernel<<<grid, block, 0>>>(
+      out_volume_dmp.getBuffer(),
+      out_volume_dmp.getBytesPaddedUpToDim(1),
+      out_volume_dmp.getBytesPaddedUpToDim(0),
+      volume_dmp.getBuffer(),
+      volume_dmp.getBytesPaddedUpToDim(1),
+      volume_dmp.getBytesPaddedUpToDim(0),
+      _dimX, _dimY);
 }
 
 void SimilarityVolume::compute(

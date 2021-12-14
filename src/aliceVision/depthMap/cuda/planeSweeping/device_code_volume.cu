@@ -20,7 +20,7 @@ using TSim = unsigned char;
 using TSimAcc = unsigned int; // TSimAcc is the similarity accumulation type
 #endif
 
-using TSimRefine = unsigned char;
+using TSimRefine = float;
 
 inline __device__ void volume_computePatch( int rc_cam_cache_idx,
                                             int tc_cam_cache_idx,
@@ -43,6 +43,34 @@ __global__ void volume_init_kernel(TSim* volume, int volume_s, int volume_p,
         return;
 
     *get3DBufferAt(volume, volume_s, volume_p, vx, vy, vz) = 255.0f;
+}
+
+__global__ void volume_init_kernel(TSimRefine* volume, int volume_s, int volume_p,
+                                    int volDimX, int volDimY )
+{
+    const int vx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int vy = blockIdx.y * blockDim.y + threadIdx.y;
+    const int vz = blockIdx.z; // * blockDim.z + threadIdx.z;
+
+    if(vx >= volDimX || vy >= volDimY)
+        return;
+
+    *get3DBufferAt(volume, volume_s, volume_p, vx, vy, vz) = 255.0f;
+}
+
+__global__ void volume_addMin_kernel(TSimRefine* out_volume, int out_volume_s, int out_volume_p,
+                                     const TSimRefine* volume, int volume_s, int volume_p,
+                                     int volDimX, int volDimY )
+{
+    const int vx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int vy = blockIdx.y * blockDim.y + threadIdx.y;
+    const int vz = blockIdx.z;
+
+    if(vx >= volDimX || vy >= volDimY)
+        return;
+
+    TSimRefine* outSim = get3DBufferAt(out_volume, out_volume_s, out_volume_p, vx, vy, vz);
+    *outSim = min(*outSim, *get3DBufferAt(volume, volume_s, volume_p, vx, vy, vz));
 }
 
 __global__ void volume_initFromSimMap_kernel(TSimRefine* volume, int volume_s, int volume_p, 

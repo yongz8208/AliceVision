@@ -277,9 +277,9 @@ void Refine::refineAndFuseDepthSimMapVolume(const DepthSimMap& depthSimMapSgmUps
         sgmParams.scale = _refineParams.scale;
         sgmParams.stepXY = _refineParams.stepXY;
 
-        _cps.sgmOptimizeSimVolume(_rc, volumeRefineFiltered_dmp, volumeRefineSim_dmp, volDim, sgmParams);
+        //_cps.sgmOptimizeSimVolume(_rc, volumeRefineFiltered_dmp, volumeRefineSim_dmp, volDim, sgmParams);
 
-        volumeRefineSim_dmp.copyFrom(volumeRefineFiltered_dmp); // update volumeRefineSim_dmp, TODO: swap
+        //volumeRefineSim_dmp.copyFrom(volumeRefineFiltered_dmp); // update volumeRefineSim_dmp, TODO: swap
         volumeRefineFiltered_dmp.deallocate();
 
         if(_refineParams.exportIntermediateResults)

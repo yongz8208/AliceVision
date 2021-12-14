@@ -127,7 +127,7 @@ bool Sgm::sgmRc()
 
     if(_sgmParams.smoothXYZVolumeRadius > 0)
     {
-        _cps.volumeGaussianSmoothXYZ(volumeFilteredSim_dmp, _sgmParams.smoothXYZVolumeRadius);
+        //_cps.volumeGaussianSmoothXYZ(volumeFilteredSim_dmp, _sgmParams.smoothXYZVolumeRadius);
     }
 
     // Retrieve best depth per pixel

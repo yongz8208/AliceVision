@@ -650,6 +650,9 @@ void PlaneSweepingCuda::refineDepthSimMapVolume(int rc,
 
         const system::Timer timerPerTc;
 
+        CudaDeviceMemoryPitched<TSimRefine, 3> volumeRefineTcSim_dmp(volDim);
+        vol.initOutputVolume(volumeRefineTcSim_dmp);
+
         const int tc = tCams[i];
 
         const int rcWidth = _mp.getWidth(rc) / vol.scale();
@@ -677,13 +680,26 @@ void PlaneSweepingCuda::refineDepthSimMapVolume(int rc,
                               << volumeRefineSim_dmp.getBytesUnpadded() / (1024.0 * 1024.0) << " MB" << std::endl
                               << "\t- device memory available: " << deviceMemoryInfo.x << "MB, total: " << deviceMemoryInfo.y << " MB" << std::endl);
         
-        vol.refine(volumeRefineSim_dmp, 
+        vol.refine(volumeRefineTcSim_dmp,
                    depthMap_dmp,
                    rcam, rcWidth, rcHeight, 
                    tcam, tcWidth, tcHeight,
                    refineParams, i);
-        
 
+        if(refineParams.exportIntermediateResults)
+        {
+            const std::string filepathAbcPrefix = _mp.getDepthMapsFolder() + std::to_string(_mp.getViewId(rc)) + "_with_tc_" + std::to_string(_mp.getViewId(tc));
+            const std::string filepathCsvPrefix = _mp.getDepthMapsFolder() + std::to_string(_mp.getViewId(rc));
+            CudaHostMemoryHeap<TSimRefine, 3> volumeSim_h(volumeRefineTcSim_dmp.getSize());
+            volumeSim_h.copyFrom(volumeRefineTcSim_dmp);
+            exportSimilarityVolume(volumeSim_h, depthSimMapSgmUpscale, _mp, rc, refineParams, filepathAbcPrefix + "_vol_refine.abc");
+            exportSimilaritySamplesCSV(volumeSim_h, rc, "refine with " + std::to_string(_mp.getViewId(tc)), filepathCsvPrefix + "_9p.csv");
+            volumeSim_h.deallocate();
+        }
+
+        vol.addMin(volumeRefineSim_dmp, volumeRefineTcSim_dmp);
+        volumeRefineTcSim_dmp.deallocate();
+        
         ALICEVISION_LOG_DEBUG("Refine similarity volume (with tc: " << tc << ") done in: " << timerPerTc.elapsedMs() << " ms.");
     }
     

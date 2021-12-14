@@ -81,17 +81,19 @@ void exportSimilarityVolume(const CudaHostMemoryHeap<TSimRefine, 3>& volumeSim,
     const size_t spitch = volumeSim.getBytesPaddedUpToDim(1);
     const size_t pitch = volumeSim.getBytesPaddedUpToDim(0);
 
-    const float maxValue = 80.0f;
-    const int xyStep = 10;
+    const float maxValue = 255.f;//80.0f;
+    const int xyStep = 1; //10;
     const int width = depthSimMapSgmUpscale.getWidth();
 
     ALICEVISION_LOG_DEBUG("DepthMap exportSimilarityVolume: " << volDim[0] << " x " << volDim[1] << " x " << volDim[2] << ", xyStep=" << xyStep << ".");
 
     IndexT landmarkId = 0;
 
-    for(int y = 0; y < volDim[1]; y += xyStep)
+    //for(int y = 0; y < volDim[1]; y += xyStep)
+    const int y = 1500;
     {
-        for(int x = 0; x < volDim[0]; x += xyStep)
+        //for(int x = 0; x < volDim[0]; x += xyStep)
+      for(int x = 0; x < 900; x += xyStep)
         {
             const float downscaleX = float(x * refineParams.scale * refineParams.stepXY);
             const float downscaleY = float(y * refineParams.scale * refineParams.stepXY);
@@ -234,21 +236,21 @@ void exportSimilaritySamplesCSV(const CudaHostMemoryHeap<TSimRefine, 3>& volumeS
     const size_t spitch = volumeSim.getBytesPaddedUpToDim(1);
     const size_t pitch = volumeSim.getBytesPaddedUpToDim(0);
 
-    const int sampleSize = 3;
+    const int sampleSize = 9;
 
-    const int xOffset = std::floor(volDim.x() / (sampleSize + 1.0f));
-    const int yOffset = std::floor(volDim.y() / (sampleSize + 1.0f));
+    //const int xOffset = std::floor(volDim.x() / (sampleSize + 1.0f));
+    //const int yOffset = std::floor(volDim.y() / (sampleSize + 1.0f));
 
-    std::vector<std::vector<float>> simPerDepthsPerPts(sampleSize * sampleSize);
+    std::vector<std::vector<float>> simPerDepthsPerPts(sampleSize);//(sampleSize * sampleSize);
 
-    for(int iy = 0; iy < sampleSize; ++iy)
+    for(int iy = 0; iy < 1; ++iy)
     {
         for(int ix = 0; ix < sampleSize; ++ix)
         {
-            const int x = (ix + 1) * xOffset;
-            const int y = (iy + 1) * yOffset;
+            const int x = 500 + ix;//(ix + 1) * xOffset;
+            const int y = 1500 + iy;//(iy + 1) * yOffset;
 
-            std::vector<float>& simPerDepths = simPerDepthsPerPts.at(iy * sampleSize + ix);
+            std::vector<float>& simPerDepths = simPerDepthsPerPts.at(ix);//(iy * sampleSize + ix);
             simPerDepths.reserve(volDim.z());
 
             for(int iz = 0; iz < volDim.z(); ++iz)
